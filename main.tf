@@ -49,7 +49,7 @@ resource "azurerm_network_security_group" "nsg_sub_apps" {
     destination_address_prefix = "*"
   }
 
-  depends_on = [azurerm_resource_group.rg]
+
 }
 
 resource "azurerm_network_security_group" "nsg_sub_mgmt" {
@@ -69,7 +69,7 @@ resource "azurerm_network_security_group" "nsg_sub_mgmt" {
     destination_address_prefix = "*"
   }
 
-  depends_on = [azurerm_resource_group.rg]
+
 }
 
 #=============================================================================
@@ -86,7 +86,7 @@ resource "azurerm_virtual_network" "vnet_shared" {
     owner = "amir"
   }
 
-  depends_on = [azurerm_resource_group.rg]
+
 }
 
 resource "azurerm_subnet" "sub_apps" {
@@ -161,7 +161,7 @@ resource "azurerm_public_ip" "pip_lb" {
   ip_version              = "IPv4"
   idle_timeout_in_minutes = 4
 
-  depends_on = [azurerm_resource_group.rg]
+
 }
 
 resource "azurerm_public_ip" "pip_bastion" {
@@ -173,7 +173,6 @@ resource "azurerm_public_ip" "pip_bastion" {
   ip_version              = "IPv4"
   idle_timeout_in_minutes = 4
 
-  depends_on = [azurerm_resource_group.rg]
 }
 
 #=============================================================================
@@ -453,7 +452,7 @@ resource "azurerm_recovery_services_vault" "rsv" {
   sku                 = "Standard"
   soft_delete_enabled = true
 
-  depends_on = [azurerm_resource_group.rg]
+
 }
 
 #=============================================================================
@@ -467,7 +466,7 @@ resource "azurerm_log_analytics_workspace" "law" {
   sku                 = "PerGB2018"
   retention_in_days   = 30
 
-  depends_on = [azurerm_resource_group.rg]
+
 }
 
 #=============================================================================
@@ -485,7 +484,7 @@ resource "azurerm_storage_account" "stblc" {
   min_tls_version                 = "TLS1_2"
   allow_nested_items_to_be_public = false
 
-  depends_on = [azurerm_resource_group.rg]
+
 }
 
 #=============================================================================
@@ -496,7 +495,7 @@ resource "azurerm_private_dns_zone" "dns_zone" {
   name                = "test.local"
   resource_group_name = var.resource_group_name
 
-  depends_on = [azurerm_resource_group.rg]
+
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "dns_vnet_link" {
