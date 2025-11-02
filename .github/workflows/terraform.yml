@@ -74,6 +74,12 @@ jobs:
           TF_VAR_admin_username: ${{ secrets.VM_ADMIN_USERNAME }}
           TF_VAR_admin_password: ${{ secrets.VM_ADMIN_PASSWORD }}
 
+      - name: Terraform Import NSG
+        run: terraform import azurerm_network_security_group.nsg_sub_apps /subscriptions/<subscription_id>/resourceGroups/rg-kolad-sch/providers/Microsoft.Network/networkSecurityGroups/nsg-wss-lab-sec-001
+    
+      - name: Terraform Import VNet
+        run: terraform import azurerm_virtual_network.vnet_shared /subscriptions/<subscription_id>/resourceGroups/rg-kolad-sch/providers/Microsoft.Network/virtualNetworks/vnet-wss-lab-sec-001
+
       - name: Terraform Plan
         id: plan
         if: github.event_name == 'pull_request'
