@@ -220,7 +220,7 @@ resource "azurerm_lb_rule" "lb_rule" {
   frontend_ip_configuration_name = "PIP-LB"
   backend_address_pool_ids       = [azurerm_lb_backend_address_pool.pool_webs.id]
   probe_id                       = azurerm_lb_probe.hp_lb.id
-  enable_floating_ip             = false
+  floating_ip_enabled            = false
   disable_outbound_snat          = true
 
   depends_on = [
