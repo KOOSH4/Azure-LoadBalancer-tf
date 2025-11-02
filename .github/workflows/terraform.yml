@@ -48,8 +48,6 @@ jobs:
             -backend-config="key=loadbalancer.prod.tfstate"
     
 
-            terraform destroy -force-unlock
-            
       - name: Terraform Format Check
         run: terraform fmt -check
         continue-on-error: true
