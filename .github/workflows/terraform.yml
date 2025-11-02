@@ -30,13 +30,6 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
 
-      - name:  Debug Variables
-        run: |
-          echo "RG Name is: '${{ vars.BACKEND_RESOURCE_GROUP_NAME }}'"
-          echo "Storage Account Name is: '${{ vars.BACKEND_STORAGE_ACCOUNT_NAME }}'"
-          echo "Client ID is: '${{ secrets.AZURE_CLIENT_ID }}'" # Secrets will show up as ***
-
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         
