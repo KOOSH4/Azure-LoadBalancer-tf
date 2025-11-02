@@ -413,33 +413,6 @@ resource "azurerm_windows_virtual_machine" "vm_web2" {
   depends_on = [azurerm_network_interface.nic_web2]
 }
 
-#=============================================================================
-# AZURE BASTION
-#=============================================================================
-
-resource "azurerm_bastion_host" "bastion" {
-  name                = "bas-wss-lab-sec-001"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  sku                 = "Standard"
-
-  # Optional: Enable copy/paste, file transfer, and shareable link features
-  copy_paste_enabled     = true
-  file_copy_enabled      = true
-  shareable_link_enabled = false
-  tunneling_enabled      = true
-
-  ip_configuration {
-    name                 = "bastion-ipconfig"
-    subnet_id            = azurerm_subnet.sub_bastion.id
-    public_ip_address_id = azurerm_public_ip.pip_bastion.id
-  }
-
-  depends_on = [
-    azurerm_subnet.sub_bastion,
-    azurerm_public_ip.pip_bastion
-  ]
-}
 
 #=============================================================================
 # RECOVERY SERVICES VAULT
