@@ -10,10 +10,10 @@ terraform {
 provider "azurerm" {
   features {
   }
-  use_oidc = true
-  subscription_id   = var.subscription_id
-  client_id         = var.client_id
-  tenant_id         = var.tenant_id
+  use_oidc        = true
+  subscription_id = var.subscription_id
+  client_id       = var.client_id
+  tenant_id       = var.tenant_id
 }
 
 #=============================================================================
@@ -81,7 +81,7 @@ resource "azurerm_virtual_network" "vnet_shared" {
   location            = var.location
   resource_group_name = var.resource_group_name
   address_space       = ["10.100.0.0/16"]
-  
+
   tags = {
     owner = "amir"
   }
@@ -94,7 +94,7 @@ resource "azurerm_subnet" "sub_apps" {
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.vnet_shared.name
   address_prefixes     = ["10.100.1.0/24"]
-  
+
   private_endpoint_network_policies             = "Disabled"
   private_link_service_network_policies_enabled = true
 
@@ -106,7 +106,7 @@ resource "azurerm_subnet" "sub_mgmt" {
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.vnet_shared.name
   address_prefixes     = ["10.100.0.0/24"]
-  
+
   private_endpoint_network_policies             = "Disabled"
   private_link_service_network_policies_enabled = true
 
@@ -118,7 +118,7 @@ resource "azurerm_subnet" "sub_bastion" {
   name                 = "AzureBastionSubnet"
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.vnet_shared.name
-  address_prefixes     = ["10.100.2.0/26"]  # Minimum /26 required for Bastion
+  address_prefixes     = ["10.100.2.0/26"] # Minimum /26 required for Bastion
 
   depends_on = [azurerm_virtual_network.vnet_shared]
 }
@@ -253,9 +253,9 @@ resource "azurerm_lb_outbound_rule" "out_lb" {
 #=============================================================================
 
 resource "azurerm_network_interface" "nic_mgmt" {
-  name                          = "nic-vm-mgmt-wss-lab-sec-001"
-  location                      = var.location
-  resource_group_name           = var.resource_group_name
+  name                = "nic-vm-mgmt-wss-lab-sec-001"
+  location            = var.location
+  resource_group_name = var.resource_group_name
 
   ip_configuration {
     name                          = "ipconfig1"
@@ -269,9 +269,9 @@ resource "azurerm_network_interface" "nic_mgmt" {
 }
 
 resource "azurerm_network_interface" "nic_web1" {
-  name                          = "nic-vm-web1-wss-lab-sec-001"
-  location                      = var.location
-  resource_group_name           = var.resource_group_name
+  name                = "nic-vm-web1-wss-lab-sec-001"
+  location            = var.location
+  resource_group_name = var.resource_group_name
 
   ip_configuration {
     name                          = "ipconfig1"
@@ -285,9 +285,9 @@ resource "azurerm_network_interface" "nic_web1" {
 }
 
 resource "azurerm_network_interface" "nic_web2" {
-  name                          = "nic-vm-web2-wss-lab-sec-001"
-  location                      = var.location
-  resource_group_name           = var.resource_group_name
+  name                = "nic-vm-web2-wss-lab-sec-001"
+  location            = var.location
+  resource_group_name = var.resource_group_name
 
   ip_configuration {
     name                          = "ipconfig1"
@@ -423,7 +423,7 @@ resource "azurerm_bastion_host" "bastion" {
   location            = var.location
   resource_group_name = var.resource_group_name
   sku                 = "Standard"
-  
+
   # Optional: Enable copy/paste, file transfer, and shareable link features
   copy_paste_enabled     = true
   file_copy_enabled      = true
@@ -480,7 +480,7 @@ resource "azurerm_storage_account" "stblc" {
   location                 = var.location
   account_tier             = "Standard"
   account_replication_type = "LRS"
-  
+
   # Security settings
   min_tls_version                 = "TLS1_2"
   allow_nested_items_to_be_public = false

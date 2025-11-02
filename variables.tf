@@ -36,6 +36,6 @@ variable "admin_username" {
 variable "admin_password" {
   description = "Admin password for Windows VMs"
   type        = string
-  default     = ""  # Will be provided via GitHub Secrets
+  default     = "" # Will be provided via GitHub Secrets
   sensitive   = true
 }
