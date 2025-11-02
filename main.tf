@@ -10,41 +10,400 @@ terraform {
 provider "azurerm" {
   features {
   }
-  use_oidc        = true
-  subscription_id = var.subscription_id
-  client_id       = var.client_id
-  tenant_id       = var.tenant_id
+  use_oidc = true
+  subscription_id   = var.subscription_id
+  client_id         = var.client_id
+  tenant_id         = var.tenant_id
+}
+
+resource "random_string" "rg_suffix" {
+  length  = 6
+  upper   = false
+  special = false
 }
 
 
-
-
-resource "azurerm_network_security_group" "security_group" {
+resource "azurerm_network_security_group" "nsg_sub_apps" {
   name                = "nsg-wss-lab-sec-001"
   location            = var.location
   resource_group_name = var.resource_group_name
+
+  security_rule {
+    name                       = "RDP"
+    priority                   = 300
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "3389"
+    source_address_prefix      = "10.100.0.0/24"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "HTTPS"
+    priority                   = 250
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "Internet"
+    destination_address_prefix = "*"
+  }
 }
 
-
-resource "azurerm_virtual_network" "Vnet" {
-  name                = "vnet-wss-lab-sec-001"
+resource "azurerm_network_security_group" "nsg_sub_mgmt" {
+  name                = "nsg-wss-lab-sec-001"
   location            = var.location
   resource_group_name = var.resource_group_name
-  address_space       = ["10.0.0.0/16"]
-  dns_servers         = ["10.0.0.4", "10.0.0.5"]
 
-  subnet {
-    name             = "snet-app-wss-lab-sec-001"
-    address_prefixes = ["10.0.1.0/24"]
+  security_rule {
+    name                       = "RDP"
+    priority                   = 300
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "3389"
+    source_address_prefix      = "109.41.113.107"
+    destination_address_prefix = "*"
   }
+}
 
-  subnet {
-    name             = "snet-mngmnt-wss-lab-sec-002"
-    address_prefixes = ["10.0.2.0/24"]
-    security_group   = azurerm_network_security_group.security_group.id
-  }
-
+resource "azurerm_virtual_network" "vnet_shared" {
+  name                = "vnet-wss-lab-sec-001"
+ location            = var.location
+  resource_group_name = var.resource_group_name
+  address_space       = ["10.100.0.0/16"]
   tags = {
-    environment = "Production"
+    owner = "amir"
   }
+}
+
+resource "azurerm_subnet" "sub_apps" {
+  name                                          = "snet-app-wss-lab-sec-001"
+  resource_group_name                           = var.resource_group_name
+  virtual_network_name                          = azurerm_virtual_network.vnet_shared.name
+  address_prefixes                              = ["10.100.1.0/24"]
+  private_endpoint_network_policies             = "Disabled"
+  private_link_service_network_policies_enabled = true
+}
+
+resource "azurerm_subnet_network_security_group_association" "sub_apps_nsg" {
+  subnet_id                 = azurerm_subnet.sub_apps.id
+  network_security_group_id = azurerm_network_security_group.nsg_sub_apps.id
+}
+
+resource "azurerm_subnet" "sub_mgmt" {
+  name                                          = "snet-mngmnt-wss-lab-sec-002"
+  resource_group_name                           = var.resource_group_name
+  virtual_network_name                          = azurerm_virtual_network.vnet_shared.name
+  address_prefixes                              = ["10.100.0.0/24"]
+  private_endpoint_network_policies             = "Disabled"
+  private_link_service_network_policies_enabled = true
+}
+
+resource "azurerm_subnet_network_security_group_association" "sub_mgmt_nsg" {
+  subnet_id                 = azurerm_subnet.sub_mgmt.id
+  network_security_group_id = azurerm_network_security_group.nsg_sub_mgmt.id
+}
+
+resource "azurerm_public_ip" "pip_lb" {
+  name                    = "Pip-LB"
+  location                = var.location
+  resource_group_name     = var.resource_group_name
+  allocation_method       = "Static"
+  sku                     = "Standard"
+  zones                   = ["1", "2", "3"]
+  ip_version              = "IPv4"
+  idle_timeout_in_minutes = 4
+}
+
+resource "azurerm_public_ip" "pip_vm_mgmt" {
+  name                    = "vm-mgmt-demo-sw-ip"
+  location                = var.location
+  resource_group_name     = var.resource_group_name
+  allocation_method       = "Static"
+  sku                     = "Standard"
+  zones                   = ["1"]
+  ip_version              = "IPv4"
+  idle_timeout_in_minutes = 4
+}
+
+resource "azurerm_lb" "lb" {
+  name                = "lbi-wss-lab-sec-001"
+  location                = var.location
+  resource_group_name     = var.resource_group_name
+  sku                 = "Standard"
+
+  frontend_ip_configuration {
+    name                 = "PIP-LB"
+    public_ip_address_id = azurerm_public_ip.pip_lb.id
+  }
+}
+
+resource "azurerm_lb_backend_address_pool" "pool_webs" {
+  name            = "Pool-webs"
+  loadbalancer_id = azurerm_lb.lb.id
+}
+
+resource "azurerm_lb_probe" "hp_lb" {
+  name                = "HP-LB"
+  loadbalancer_id     = azurerm_lb.lb.id
+  protocol            = "Tcp"
+  port                = 443
+  interval_in_seconds = 5
+  number_of_probes    = 1
+}
+
+resource "azurerm_lb_rule" "lb_rule" {
+  name                           = "LB-rule"
+  loadbalancer_id                = azurerm_lb.lb.id
+  protocol                       = "Tcp"
+  frontend_port                  = 443
+  backend_port                   = 443
+  frontend_ip_configuration_name = "PIP-LB"
+  backend_address_pool_ids       = [azurerm_lb_backend_address_pool.pool_webs.id]
+  probe_id                       = azurerm_lb_probe.hp_lb.id
+  floating_ip_enabled             = false
+  disable_outbound_snat          = true
+}
+
+resource "azurerm_lb_outbound_rule" "out_lb" {
+  name                    = "out-LB"
+  loadbalancer_id         = azurerm_lb.lb.id
+  protocol                = "All"
+  backend_address_pool_id = azurerm_lb_backend_address_pool.pool_webs.id
+  allocated_outbound_ports = 31992
+  idle_timeout_in_minutes  = 4
+
+  frontend_ip_configuration {
+    name = "PIP-LB"
+  }
+}
+
+resource "azurerm_network_interface" "nic_mgmt" {
+  name                = "vm-mgmt-demo-sw376_z1"
+  location                = var.location
+  resource_group_name     = var.resource_group_name
+
+  ip_configuration {
+    name                          = "ipconfig1"
+    subnet_id                     = azurerm_subnet.sub_mgmt.id
+    private_ip_address_allocation = "Dynamic"
+    public_ip_address_id          = azurerm_public_ip.pip_vm_mgmt.id
+    private_ip_address_version    = "IPv4"
+    primary                       = true
+  }
+
+  accelerated_networking_enabled = true
+}
+
+resource "azurerm_network_interface" "nic_web1" {
+  name                = "vm-web1-demo-sw218_z1"
+  location                = var.location
+  resource_group_name     = var.resource_group_name
+
+  ip_configuration {
+    name                          = "ipconfig1"
+    subnet_id                     = azurerm_subnet.sub_apps.id
+    private_ip_address_allocation = "Dynamic"
+    private_ip_address_version    = "IPv4"
+    primary                       = true
+  }
+
+  accelerated_networking_enabled = true
+}
+
+resource "azurerm_network_interface_backend_address_pool_association" "nic_web1_lb" {
+  network_interface_id    = azurerm_network_interface.nic_web1.id
+  ip_configuration_name   = "ipconfig1"
+  backend_address_pool_id = azurerm_lb_backend_address_pool.pool_webs.id
+}
+
+resource "azurerm_network_interface" "nic_web2" {
+  name                = "vm-web2-demo-sw10_z2"
+  location                = var.location
+  resource_group_name     = var.resource_group_name
+
+  ip_configuration {
+    name                          = "ipconfig1"
+    subnet_id                     = azurerm_subnet.sub_apps.id
+    private_ip_address_allocation = "Dynamic"
+    private_ip_address_version    = "IPv4"
+    primary                       = true
+  }
+
+  accelerated_networking_enabled = true
+}
+
+resource "azurerm_network_interface_backend_address_pool_association" "nic_web2_lb" {
+  network_interface_id    = azurerm_network_interface.nic_web2.id
+  ip_configuration_name   = "ipconfig1"
+  backend_address_pool_id = azurerm_lb_backend_address_pool.pool_webs.id
+}
+
+resource "azurerm_windows_virtual_machine" "vm_mgmt" {
+  name                  = "vm-wss-lab-sec-001"
+  location                = var.location
+  resource_group_name     = var.resource_group_name
+  size                  = "Standard_D2as_v5"
+  admin_username        = "amir"
+  network_interface_ids = [azurerm_network_interface.nic_mgmt.id]
+
+  source_image_reference {
+    publisher = "MicrosoftWindowsServer"
+    offer     = "WindowsServer"
+    sku       = "2022-datacenter-azure-edition"
+    version   = "latest"
+  }
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+    name                 = "vm-mgmt-demo-sw_OsDisk"
+  }
+
+  secure_boot_enabled = true
+  vtpm_enabled        = true
+}
+
+resource "azurerm_windows_virtual_machine" "vm_web1" {
+  name                  = "vm-wss-lab-sec-001"
+  location                = var.location
+  resource_group_name     = var.resource_group_name
+  size                  = "Standard_D2as_v5"
+  admin_username        = "amir"
+  network_interface_ids = [azurerm_network_interface.nic_web1.id]
+
+  source_image_reference {
+    publisher = "MicrosoftWindowsServer"
+    offer     = "WindowsServer"
+    sku       = "2022-datacenter-azure-edition"
+    version   = "latest"
+  }
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+    name                 = "vm-web1-demo-sw_OsDisk"
+  }
+
+  secure_boot_enabled = true
+  vtpm_enabled        = true
+}
+
+resource "azurerm_windows_virtual_machine" "vm_web2" {
+  name                  = "vm-wss-lab-sec-001"
+  location                = var.location
+  resource_group_name     = var.resource_group_name
+  size                  = "Standard_D2as_v5"
+  admin_username        = "amir"
+  network_interface_ids = [azurerm_network_interface.nic_web2.id]
+
+  source_image_reference {
+    publisher = "MicrosoftWindowsServer"
+    offer     = "WindowsServer"
+    sku       = "2022-datacenter-azure-edition"
+    version   = "latest"
+  }
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+    name                 = "vm-web2-demo-sw_OsDisk"
+  }
+
+  secure_boot_enabled = true
+  vtpm_enabled        = true
+}
+
+resource "azurerm_recovery_services_vault" "rsv" {
+  name                = "rsv-wss-lab-sec-001"
+  location                = var.location
+  resource_group_name     = var.resource_group_name
+  sku                 = "Standard"
+  soft_delete_enabled = true
+}
+
+resource "azurerm_log_analytics_workspace" "law" {
+  name                = "log-wss-lab-sec-001"
+  location                = var.location
+  resource_group_name     = var.resource_group_name
+  sku                 = "PerGB2018"
+  retention_in_days   = 30
+}
+
+resource "azurerm_storage_account" "stblc" {
+  name                     = "stblcwsslabsec001"
+  location                = var.location
+  resource_group_name     = var.resource_group_name
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+}
+
+resource "azurerm_bastion_host" "bastion" {
+  name                = "bas-wss-lab-sec-001"
+  location                = var.location
+  resource_group_name     = var.resource_group_name
+
+  ip_configuration {
+    name                 = "configuration"
+    subnet_id            = azurerm_subnet.sub_mgmt.id
+    public_ip_address_id = azurerm_public_ip.pip_vm_mgmt.id
+  }
+}
+
+resource "azurerm_private_dns_zone" "dns_zone" {
+  name                = "test.local"
+  resource_group_name     = var.resource_group_name
+}
+
+resource "azurerm_private_dns_a_record" "dns_vm_mgmt" {
+  name                = "vm-mgmt-demo-sw"
+  zone_name           = azurerm_private_dns_zone.dns_zone.name
+  resource_group_name     = var.resource_group_name
+  ttl                 = 10
+  records             = ["10.100.0.4"]
+}
+
+resource "azurerm_private_dns_a_record" "dns_vm_web1" {
+  name                = "vm-web1-demo-sw"
+  zone_name           = azurerm_private_dns_zone.dns_zone.name
+  resource_group_name     = var.resource_group_name
+  ttl                 = 10
+  records             = ["10.100.1.4"]
+}
+
+resource "azurerm_private_dns_a_record" "dns_vm_web2" {
+  name                = "vm-web2-demo-sw"
+  zone_name           = azurerm_private_dns_zone.dns_zone.name
+  resource_group_name     = var.resource_group_name
+  ttl                 = 10
+  records             = ["10.100.1.5"]
+}
+
+resource "azurerm_private_dns_a_record" "dns_web1" {
+  name                = "web1"
+  zone_name           = azurerm_private_dns_zone.dns_zone.name
+  resource_group_name     = var.resource_group_name
+  ttl                 = 3600
+  records             = ["10.100.1.4"]
+}
+
+resource "azurerm_private_dns_a_record" "dns_web2" {
+  name                = "web2"
+  zone_name           = azurerm_private_dns_zone.dns_zone.name
+  resource_group_name     = var.resource_group_name.name
+  ttl                 = 3600
+  records             = ["10.100.1.5"]
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "dns_vnet_link" {
+  name                  = "localdns"
+  resource_group_name     = var.resource_group_name
+  private_dns_zone_name = azurerm_private_dns_zone.dns_zone.name
+  virtual_network_id    = azurerm_virtual_network.vnet_shared.id
+  registration_enabled  = true
 }
