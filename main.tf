@@ -330,7 +330,7 @@ resource "azurerm_network_interface_backend_address_pool_association" "nic_web2_
 #=============================================================================
 
 resource "azurerm_windows_virtual_machine" "vm_mgmt" {
-  name                  = "vm-mgmt-wss-lab-sec-001"
+  name                  = "vm-mgmt-wss-sec"
   location              = var.location
   resource_group_name   = var.resource_group_name
   size                  = "Standard_D2as_v5"
