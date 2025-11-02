@@ -25,3 +25,16 @@ variable "tenant_id" {
   type        = string
   sensitive   = true
 }
+
+variable "admin_username" {
+  description = "Admin username for Windows VMs"
+  default = "AzureMinions"
+  type        = string
+  sensitive   = true
+}
+
+variable "admin_password" {
+  description = "Admin password for Windows VMs"
+  type        = string
+  sensitive   = true
+}
