@@ -28,13 +28,14 @@ variable "tenant_id" {
 
 variable "admin_username" {
   description = "Admin username for Windows VMs"
-  default = "AzureMinions"
   type        = string
+  default     = "AzureMinions"
   sensitive   = true
 }
 
 variable "admin_password" {
   description = "Admin password for Windows VMs"
   type        = string
+  default     = ""  # Will be provided via GitHub Secrets
   sensitive   = true
 }
