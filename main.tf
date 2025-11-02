@@ -358,7 +358,7 @@ resource "azurerm_windows_virtual_machine" "vm_mgmt" {
 }
 
 resource "azurerm_windows_virtual_machine" "vm_web1" {
-  name                  = "vm-web1-wss-lab-sec-001"
+  name                  = "vm-web1-wss-sec"
   location              = var.location
   resource_group_name   = var.resource_group_name
   size                  = "Standard_D2as_v5"
@@ -386,7 +386,7 @@ resource "azurerm_windows_virtual_machine" "vm_web1" {
 }
 
 resource "azurerm_windows_virtual_machine" "vm_web2" {
-  name                  = "vm-web2-wss-lab-sec-001"
+  name                  = "vm-web2-wss-sec"
   location              = var.location
   resource_group_name   = var.resource_group_name
   size                  = "Standard_D2as_v5"
