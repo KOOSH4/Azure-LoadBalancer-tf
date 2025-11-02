@@ -1,5 +1,4 @@
 # .github/workflows/terraform.yml
-
 name: 'Terraform CI/CD'
 
 on:
@@ -22,36 +21,50 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Azure Login
+      - name: Azure Login (OIDC)
         uses: azure/login@v1
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
-        
-        
+        with:
+          terraform_version: 1.9.5
+
       - name: Terraform Init
-        id: init
-        env:
-          # Pass the secrets as environment variables to the init command
-          # The ARM_ backend provider will automatically use them.
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         run: |
-          terraform init -backend-config="resource_group_name=${{ vars.BACKEND_RESOURCE_GROUP_NAME }}"  -backend-config="storage_account_name=${{ vars.BACKEND_STORAGE_ACCOUNT_NAME }}" -backend-config="container_name=${{ vars.BACKEND_CONTAINER_NAME }}" -backend-config="key=loadbalancer.prod.tfstate"
+          terraform init \
+            -backend-config="resource_group_name=${{ vars.BACKEND_RESOURCE_GROUP_NAME }}" \
+            -backend-config="storage_account_name=${{ vars.BACKEND_STORAGE_ACCOUNT_NAME }}" \
+            -backend-config="container_name=${{ vars.BACKEND_CONTAINER_NAME }}" \
+            -backend-config="key=loadbalancer.prod.tfstate"
+
+      - name: Terraform Format Check
+        run: terraform fmt -check
+
+      - name: Terraform Validate
+        run: terraform validate
 
       - name: Terraform Plan
-        id: plan
-        # For Pull Requests, we only want to run the plan
         if: github.event_name == 'pull_request'
+        env:
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_client_id:       ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_tenant_id:       ${{ secrets.AZURE_TENANT_ID }}
         run: terraform plan -no-color
 
       - name: Terraform Apply
-        # Only run apply on the main branch
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: terraform apply -auto-approve
+        env:
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_client_id:       ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_tenant_id:       ${{ secrets.AZURE_TENANT_ID }}
+        run: |
+          terraform plan -out=tfplan
+          terraform apply -auto-approve tfplan
+
+      - name: Terraform Output
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: terraform output

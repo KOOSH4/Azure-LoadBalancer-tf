@@ -10,7 +10,10 @@ terraform {
 provider "azurerm" {
   features {
   }
-  use_oidc = true
+  use_oidc        = true
+  subscription_id = var.subscription_id
+  client_id       = var.client_id
+  tenant_id       = var.tenant_id
 }
 
 
@@ -38,7 +41,7 @@ resource "azurerm_virtual_network" "Vnet" {
   subnet {
     name             = "snet-mngmnt-wss-lab-sec-002"
     address_prefixes = ["10.0.2.0/24"]
-  security_group   = azurerm_network_security_group.security_group.id
+    security_group   = azurerm_network_security_group.security_group.id
   }
 
   tags = {
