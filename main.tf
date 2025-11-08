@@ -62,7 +62,7 @@ resource "azurerm_key_vault" "vm_credentials" {
   purge_protection_enabled   = true
 
   # Enable RBAC for access control (modern approach)
-  enable_rbac_authorization = true
+  rbac_authorization_enabled = true
 
   # Network rules for additional security
   network_acls {
@@ -165,106 +165,6 @@ resource "azurerm_application_security_group" "asg_quarantine" {
   tags = {
     tier = "security"
     role = "incident-response"
-  }
-}
-
-# ============================================================================
-# NETWORK SECURITY GROUPS
-# ============================================================================
-
-resource "azurerm_network_security_group" "nsg_sub_apps" {
-  name                = "nsg-wss-lab-sec-001"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-
-  security_rule {
-    name                                       = "AllowRDPFromMgmt"
-    priority                                   = 300
-    direction                                  = "Inbound"
-    access                                     = "Allow"
-    protocol                                   = "Tcp"
-    source_port_range                          = "*"
-    destination_port_range                     = "3389"
-    source_application_security_group_ids      = [azurerm_application_security_group.asg_mgmt_tier.id]
-    destination_application_security_group_ids = [azurerm_application_security_group.asg_web_tier.id]
-  }
-
-  security_rule {
-    name                                       = "AllowHTTPSFromInternet"
-    priority                                   = 250
-    direction                                  = "Inbound"
-    access                                     = "Allow"
-    protocol                                   = "Tcp"
-    source_port_range                          = "*"
-    destination_port_range                     = "443"
-    source_address_prefix                      = "Internet"
-    destination_application_security_group_ids = [azurerm_application_security_group.asg_lb_backend.id]
-  }
-
-  security_rule {
-    name                                  = "DenyAllFromQuarantine"
-    priority                              = 100
-    direction                             = "Outbound"
-    access                                = "Deny"
-    protocol                              = "*"
-    source_port_range                     = "*"
-    destination_port_range                = "*"
-    source_application_security_group_ids = [azurerm_application_security_group.asg_quarantine.id]
-    destination_address_prefix            = "*"
-  }
-
-  security_rule {
-    name                                       = "DenyAllToQuarantine"
-    priority                                   = 100
-    direction                                  = "Inbound"
-    access                                     = "Deny"
-    protocol                                   = "*"
-    source_port_range                          = "*"
-    destination_port_range                     = "*"
-    source_address_prefix                      = "*"
-    destination_application_security_group_ids = [azurerm_application_security_group.asg_quarantine.id]
-  }
-}
-
-resource "azurerm_network_security_group" "nsg_sub_mgmt" {
-  name                = "nsg-mgmt-wss-lab-sec-001"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-
-  security_rule {
-    name                                       = "AllowRDPFromSpecificIP"
-    priority                                   = 300
-    direction                                  = "Inbound"
-    access                                     = "Allow"
-    protocol                                   = "Tcp"
-    source_port_range                          = "*"
-    destination_port_range                     = "3389"
-    source_address_prefix                      = var.allowed_rdp_ip
-    destination_application_security_group_ids = [azurerm_application_security_group.asg_mgmt_tier.id]
-  }
-
-  security_rule {
-    name                                  = "DenyAllFromQuarantine"
-    priority                              = 100
-    direction                             = "Outbound"
-    access                                = "Deny"
-    protocol                              = "*"
-    source_port_range                     = "*"
-    destination_port_range                = "*"
-    source_application_security_group_ids = [azurerm_application_security_group.asg_quarantine.id]
-    destination_address_prefix            = "*"
-  }
-
-  security_rule {
-    name                                       = "DenyAllToQuarantine"
-    priority                                   = 100
-    direction                                  = "Inbound"
-    access                                     = "Deny"
-    protocol                                   = "*"
-    source_port_range                          = "*"
-    destination_port_range                     = "*"
-    source_address_prefix                      = "*"
-    destination_application_security_group_ids = [azurerm_application_security_group.asg_quarantine.id]
   }
 }
 
