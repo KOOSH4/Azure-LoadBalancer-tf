@@ -1,14 +1,26 @@
+# ============================================================================
+# MAIN.TF 
+# ============================================================================
+
 terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
       version = "4.51.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 }
 
 provider "azurerm" {
   features {
+    key_vault {
+      purge_soft_delete_on_destroy    = false
+      recover_soft_deleted_key_vaults = true
+    }
   }
   use_oidc        = true
   subscription_id = var.subscription_id
@@ -16,9 +28,96 @@ provider "azurerm" {
   tenant_id       = var.tenant_id
 }
 
-#============================================================================
+# ============================================================================
+# DATA SOURCES - Get current client configuration
+# ============================================================================
+
+data "azurerm_client_config" "current" {}
+
+# ============================================================================
+# RANDOM PASSWORD GENERATION
+# ============================================================================
+
+resource "random_password" "vm_admin_password" {
+  length           = 24
+  special          = true
+  override_special = "!#$%&*()-_=+[]{}<>:?"
+  min_lower        = 2
+  min_upper        = 2
+  min_numeric      = 2
+  min_special      = 2
+}
+
+# ============================================================================
+# KEY VAULT - For storing VM credentials and Certificates
+# ============================================================================
+
+resource "azurerm_key_vault" "vm_credentials" {
+  name                       = "kv-wss-lab-sec-001"
+  location                   = var.location
+  resource_group_name        = var.resource_group_name
+  tenant_id                  = data.azurerm_client_config.current.tenant_id
+  sku_name                   = "standard"
+  soft_delete_retention_days = 7
+  purge_protection_enabled   = true
+
+  # Enable RBAC for access control (modern approach)
+  enable_rbac_authorization = true
+
+  # Network rules for additional security
+  network_acls {
+    bypass         = "AzureServices"
+    default_action = "Allow" # Change to "Deny" after adding your IP to allowed list
+  }
+
+  tags = {
+    Environment = "Lab"
+    ManagedBy   = "Terraform"
+    Purpose     = "VM-Credentials"
+  }
+}
+
+# ============================================================================
+# KEY VAULT RBAC ASSIGNMENTS
+# ============================================================================
+
+# Grant the service principal (GitHub Actions OIDC) access to secrets
+resource "azurerm_role_assignment" "kv_secrets_officer" {
+  scope                = azurerm_key_vault.vm_credentials.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
+# ============================================================================
+# KEY VAULT SECRETS - Store VM credentials
+# ============================================================================
+
+resource "azurerm_key_vault_secret" "vm_admin_username" {
+  name         = "vm-admin-username"
+  value        = var.admin_username
+  key_vault_id = azurerm_key_vault.vm_credentials.id
+
+  depends_on = [azurerm_role_assignment.kv_secrets_officer]
+}
+
+resource "azurerm_key_vault_secret" "vm_admin_password" {
+  name         = "vm-admin-password"
+  value        = random_password.vm_admin_password.result
+  key_vault_id = azurerm_key_vault.vm_credentials.id
+
+  content_type = "password"
+
+  tags = {
+    CreatedBy = "Terraform"
+    RotateOn  = timeadd(timestamp(), "2160h") # 90 days
+  }
+
+  depends_on = [azurerm_role_assignment.kv_secrets_officer]
+}
+
+# ============================================================================
 # APPLICATION SECURITY GROUPS
-#============================================================================
+# ============================================================================
 
 resource "azurerm_application_security_group" "asg_web_tier" {
   name                = "asg-web-tier-wss-lab-sec-001"
@@ -64,16 +163,15 @@ resource "azurerm_application_security_group" "asg_quarantine" {
   }
 }
 
-#============================================================================
+# ============================================================================
 # NETWORK SECURITY GROUPS
-#============================================================================
+# ============================================================================
 
 resource "azurerm_network_security_group" "nsg_sub_apps" {
   name                = "nsg-wss-lab-sec-001"
   location            = var.location
   resource_group_name = var.resource_group_name
 
-  # Allow RDP from management tier to web tier
   security_rule {
     name                                       = "AllowRDPFromMgmt"
     priority                                   = 300
@@ -86,7 +184,6 @@ resource "azurerm_network_security_group" "nsg_sub_apps" {
     destination_application_security_group_ids = [azurerm_application_security_group.asg_web_tier.id]
   }
 
-  # Allow HTTPS from Internet to load-balanced backend
   security_rule {
     name                                       = "AllowHTTPSFromInternet"
     priority                                   = 250
@@ -99,7 +196,6 @@ resource "azurerm_network_security_group" "nsg_sub_apps" {
     destination_application_security_group_ids = [azurerm_application_security_group.asg_lb_backend.id]
   }
 
-  # Deny all traffic to/from quarantined VMs
   security_rule {
     name                                  = "DenyAllFromQuarantine"
     priority                              = 100
@@ -130,7 +226,6 @@ resource "azurerm_network_security_group" "nsg_sub_mgmt" {
   location            = var.location
   resource_group_name = var.resource_group_name
 
-  # Allow RDP from specific public IP to management tier
   security_rule {
     name                                       = "AllowRDPFromSpecificIP"
     priority                                   = 300
@@ -139,11 +234,10 @@ resource "azurerm_network_security_group" "nsg_sub_mgmt" {
     protocol                                   = "Tcp"
     source_port_range                          = "*"
     destination_port_range                     = "3389"
-    source_address_prefix                      = "109.41.113.107/32"
+    source_address_prefix                      = var.allowed_rdp_ip
     destination_application_security_group_ids = [azurerm_application_security_group.asg_mgmt_tier.id]
   }
 
-  # Deny all traffic to/from quarantined VMs
   security_rule {
     name                                  = "DenyAllFromQuarantine"
     priority                              = 100
@@ -169,9 +263,9 @@ resource "azurerm_network_security_group" "nsg_sub_mgmt" {
   }
 }
 
-#=============================================================================
+# ============================================================================
 # VIRTUAL NETWORK AND SUBNETS
-#=============================================================================
+# ============================================================================
 
 resource "azurerm_virtual_network" "vnet_shared" {
   name                = "vnet-wss-lab-sec-001"
@@ -208,9 +302,9 @@ resource "azurerm_subnet" "sub_mgmt" {
   depends_on = [azurerm_virtual_network.vnet_shared]
 }
 
-#=============================================================================
+# ============================================================================
 # SUBNET NSG ASSOCIATIONS
-#=============================================================================
+# ============================================================================
 
 resource "azurerm_subnet_network_security_group_association" "sub_apps_nsg" {
   subnet_id                 = azurerm_subnet.sub_apps.id
@@ -232,9 +326,9 @@ resource "azurerm_subnet_network_security_group_association" "sub_mgmt_nsg" {
   ]
 }
 
-#=============================================================================
+# ============================================================================
 # PUBLIC IP ADDRESSES
-#=============================================================================
+# ============================================================================
 
 resource "azurerm_public_ip" "pip_lb" {
   name                    = "pip-lb-wss-lab-sec-001"
@@ -247,9 +341,9 @@ resource "azurerm_public_ip" "pip_lb" {
   idle_timeout_in_minutes = 4
 }
 
-#=============================================================================
+# ============================================================================
 # LOAD BALANCER
-#=============================================================================
+# ============================================================================
 
 resource "azurerm_lb" "lb" {
   name                = "lbi-wss-lab-sec-001"
@@ -319,9 +413,9 @@ resource "azurerm_lb_outbound_rule" "out_lb" {
   ]
 }
 
-#=============================================================================
+# ============================================================================
 # NETWORK INTERFACES
-#=============================================================================
+# ============================================================================
 
 resource "azurerm_network_interface" "nic_mgmt" {
   name                = "nic-vm-mgmt-wss-lab-sec-001"
@@ -371,11 +465,10 @@ resource "azurerm_network_interface" "nic_web2" {
   depends_on = [azurerm_subnet.sub_apps]
 }
 
-#=============================================================================
+# ============================================================================
 # NIC TO ASG ASSOCIATIONS
-#=============================================================================
+# ============================================================================
 
-# Management VM associations
 resource "azurerm_network_interface_application_security_group_association" "nic_mgmt_asg" {
   network_interface_id          = azurerm_network_interface.nic_mgmt.id
   application_security_group_id = azurerm_application_security_group.asg_mgmt_tier.id
@@ -386,7 +479,6 @@ resource "azurerm_network_interface_application_security_group_association" "nic
   ]
 }
 
-# Web1 VM associations
 resource "azurerm_network_interface_application_security_group_association" "nic_web1_asg_web_tier" {
   network_interface_id          = azurerm_network_interface.nic_web1.id
   application_security_group_id = azurerm_application_security_group.asg_web_tier.id
@@ -407,7 +499,6 @@ resource "azurerm_network_interface_application_security_group_association" "nic
   ]
 }
 
-# Web2 VM associations
 resource "azurerm_network_interface_application_security_group_association" "nic_web2_asg_web_tier" {
   network_interface_id          = azurerm_network_interface.nic_web2.id
   application_security_group_id = azurerm_application_security_group.asg_web_tier.id
@@ -428,9 +519,9 @@ resource "azurerm_network_interface_application_security_group_association" "nic
   ]
 }
 
-#=============================================================================
+# ============================================================================
 # NIC BACKEND POOL ASSOCIATIONS
-#=============================================================================
+# ============================================================================
 
 resource "azurerm_network_interface_backend_address_pool_association" "nic_web1_lb" {
   network_interface_id    = azurerm_network_interface.nic_web1.id
@@ -454,17 +545,17 @@ resource "azurerm_network_interface_backend_address_pool_association" "nic_web2_
   ]
 }
 
-#=============================================================================
-# VIRTUAL MACHINES
-#=============================================================================
+# ============================================================================
+# VIRTUAL MACHINES - Using Key Vault for credentials
+# ============================================================================
 
 resource "azurerm_windows_virtual_machine" "vm_mgmt" {
   name                  = "vm-mgmt-wss-sec"
   location              = var.location
   resource_group_name   = var.resource_group_name
   size                  = "Standard_D2as_v5"
-  admin_username        = var.admin_username
-  admin_password        = var.admin_password
+  admin_username        = azurerm_key_vault_secret.vm_admin_username.value
+  admin_password        = azurerm_key_vault_secret.vm_admin_password.value
   network_interface_ids = [azurerm_network_interface.nic_mgmt.id]
 
   source_image_reference {
@@ -483,7 +574,10 @@ resource "azurerm_windows_virtual_machine" "vm_mgmt" {
   secure_boot_enabled = true
   vtpm_enabled        = true
 
-  depends_on = [azurerm_network_interface.nic_mgmt]
+  depends_on = [
+    azurerm_network_interface.nic_mgmt,
+    azurerm_key_vault_secret.vm_admin_password
+  ]
 }
 
 resource "azurerm_windows_virtual_machine" "vm_web1" {
@@ -491,8 +585,8 @@ resource "azurerm_windows_virtual_machine" "vm_web1" {
   location              = var.location
   resource_group_name   = var.resource_group_name
   size                  = "Standard_D2as_v5"
-  admin_username        = var.admin_username
-  admin_password        = var.admin_password
+  admin_username        = azurerm_key_vault_secret.vm_admin_username.value
+  admin_password        = azurerm_key_vault_secret.vm_admin_password.value
   network_interface_ids = [azurerm_network_interface.nic_web1.id]
 
   source_image_reference {
@@ -511,7 +605,10 @@ resource "azurerm_windows_virtual_machine" "vm_web1" {
   secure_boot_enabled = true
   vtpm_enabled        = true
 
-  depends_on = [azurerm_network_interface.nic_web1]
+  depends_on = [
+    azurerm_network_interface.nic_web1,
+    azurerm_key_vault_secret.vm_admin_password
+  ]
 }
 
 resource "azurerm_windows_virtual_machine" "vm_web2" {
@@ -519,8 +616,8 @@ resource "azurerm_windows_virtual_machine" "vm_web2" {
   location              = var.location
   resource_group_name   = var.resource_group_name
   size                  = "Standard_D2as_v5"
-  admin_username        = var.admin_username
-  admin_password        = var.admin_password
+  admin_username        = azurerm_key_vault_secret.vm_admin_username.value
+  admin_password        = azurerm_key_vault_secret.vm_admin_password.value
   network_interface_ids = [azurerm_network_interface.nic_web2.id]
 
   source_image_reference {
@@ -539,12 +636,15 @@ resource "azurerm_windows_virtual_machine" "vm_web2" {
   secure_boot_enabled = true
   vtpm_enabled        = true
 
-  depends_on = [azurerm_network_interface.nic_web2]
+  depends_on = [
+    azurerm_network_interface.nic_web2,
+    azurerm_key_vault_secret.vm_admin_password
+  ]
 }
 
-#=============================================================================
+# ============================================================================
 # RECOVERY SERVICES VAULT
-#=============================================================================
+# ============================================================================
 
 resource "azurerm_recovery_services_vault" "rsv" {
   name                = "rsv-wss-lab-sec-001"
@@ -554,9 +654,9 @@ resource "azurerm_recovery_services_vault" "rsv" {
   soft_delete_enabled = true
 }
 
-#=============================================================================
+# ============================================================================
 # LOG ANALYTICS WORKSPACE
-#=============================================================================
+# ============================================================================
 
 resource "azurerm_log_analytics_workspace" "law" {
   name                = "log-wss-lab-sec-001"
@@ -566,9 +666,9 @@ resource "azurerm_log_analytics_workspace" "law" {
   retention_in_days   = 30
 }
 
-#=============================================================================
+# ============================================================================
 # STORAGE ACCOUNTS
-#=============================================================================
+# ============================================================================
 
 resource "azurerm_storage_account" "stblc" {
   name                     = "stblcwsslabsec001"
@@ -577,14 +677,13 @@ resource "azurerm_storage_account" "stblc" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  # Security settings
   min_tls_version                 = "TLS1_2"
   allow_nested_items_to_be_public = false
 }
 
-#=============================================================================
+# ============================================================================
 # PRIVATE DNS ZONE
-#=============================================================================
+# ============================================================================
 
 resource "azurerm_private_dns_zone" "dns_zone" {
   name                = "test.local"
@@ -604,9 +703,9 @@ resource "azurerm_private_dns_zone_virtual_network_link" "dns_vnet_link" {
   ]
 }
 
-#=============================================================================
+# ============================================================================
 # PRIVATE DNS A RECORDS
-#=============================================================================
+# ============================================================================
 
 resource "azurerm_private_dns_a_record" "dns_vm_mgmt" {
   name                = "vm-mgmt-demo-sw"

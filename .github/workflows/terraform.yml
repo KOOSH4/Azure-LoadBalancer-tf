@@ -1,6 +1,6 @@
 # .github/workflows/terraform.yml
 
-name: 'Terraform CI/CD'
+name: 'Terraform CI/CD with Key Vault'
 
 on:
   push:
@@ -29,10 +29,8 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
-        
         
       - name: Terraform Init
         id: init
@@ -40,13 +38,14 @@ jobs:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC: true
         run: |
           terraform init \
             -backend-config="resource_group_name=${{ vars.BACKEND_RESOURCE_GROUP_NAME }}" \
             -backend-config="storage_account_name=${{ vars.BACKEND_STORAGE_ACCOUNT_NAME }}" \
             -backend-config="container_name=${{ vars.BACKEND_CONTAINER_NAME }}" \
-            -backend-config="key=loadbalancer.prod.tfstate"
-    
+            -backend-config="key=loadbalancer.prod.tfstate" \
+            -backend-config="use_oidc=true"
 
       - name: Terraform Format Check
         run: terraform fmt -check
@@ -55,44 +54,71 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-      - name: Debug - Check Secrets (Remove after testing)
-        run: |
-          echo "Checking if secrets are set..."
-          if [ -z "$TF_VAR_admin_username" ]; then
-            echo "❌ ERROR: VM_ADMIN_USERNAME secret is empty!"
-            exit 1
-          else
-            echo "✅ Username is set (length: ${#TF_VAR_admin_username})"
-          fi
-          
-          if [ -z "$TF_VAR_admin_password" ]; then
-            echo "❌ ERROR: VM_ADMIN_PASSWORD secret is empty!"
-            exit 1
-          else
-            echo "✅ Password is set (length: ${#TF_VAR_admin_password})"
-          fi
-        env:
-          TF_VAR_admin_username: ${{ secrets.VM_ADMIN_USERNAME }}
-          TF_VAR_admin_password: ${{ secrets.VM_ADMIN_PASSWORD }}
-        
       - name: Terraform Plan
         id: plan
         if: github.event_name == 'pull_request'
         env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC: true
           TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          TF_VAR_admin_username: ${{ secrets.VM_ADMIN_USERNAME }}
-          TF_VAR_admin_password: ${{ secrets.VM_ADMIN_PASSWORD }}
         continue-on-error: false
         run: terraform plan -no-color -out=tfplan
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC: true
           TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          TF_VAR_admin_username: ${{ secrets.VM_ADMIN_USERNAME }}
-          TF_VAR_admin_password: ${{ secrets.VM_ADMIN_PASSWORD }}
         run: terraform apply -auto-approve
+
+      - name: Display Key Vault Information
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC: true
+        run: |
+          echo "============================================"
+          echo "✅ Deployment Complete!"
+          echo "============================================"
+          terraform output -raw instructions || echo "Unable to display instructions"
+          
+      - name: Retrieve and Display VM Credentials
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          echo ""
+          echo "============================================"
+          echo "🔐 VM Credentials Retrieved from Key Vault"
+          echo "============================================"
+          
+          # Get Key Vault name from Terraform output
+          KV_NAME=$(terraform output -raw key_vault_name 2>/dev/null || echo "")
+          
+          if [ -n "$KV_NAME" ]; then
+            echo "Key Vault Name: $KV_NAME"
+            echo ""
+            echo "Username:"
+            az keyvault secret show \
+              --vault-name "$KV_NAME" \
+              --name vm-admin-username \
+              --query value -o tsv 2>/dev/null || echo "Unable to retrieve username"
+            
+            echo ""
+            echo "Password: [REDACTED - Available in Key Vault]"
+            echo ""
+            echo "To retrieve the password, run:"
+            echo "az keyvault secret show --vault-name $KV_NAME --name vm-admin-password --query value -o tsv"
+          else
+            echo "⚠️  Key Vault not yet created or output not available"
+          fi
+          echo "============================================"
