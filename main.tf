@@ -52,7 +52,7 @@ resource "random_password" "vm_admin_password" {
 # ============================================================================
 
 resource "azurerm_key_vault" "vm_credentials" {
-  name                       = "kv-wss-lab-sec-${random_string.kv_suffix.result}"
+  name                       = "kv-wss-lab-sec-001"
   location                   = var.location
   resource_group_name        = var.resource_group_name
   tenant_id                  = data.azurerm_client_config.current.tenant_id
@@ -70,12 +70,6 @@ resource "azurerm_key_vault" "vm_credentials" {
     ManagedBy   = "Terraform"
     Purpose     = "VM-Credentials"
   }
-}
-
-resource "random_string" "kv_suffix" {
-  length  = 6
-  special = false
-  upper   = false
 }
 
 # ============================================================================
