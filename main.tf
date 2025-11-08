@@ -17,6 +17,54 @@ provider "azurerm" {
 }
 
 #============================================================================
+# APPLICATION SECURITY GROUPS
+#============================================================================
+
+resource "azurerm_application_security_group" "asg_web_tier" {
+  name                = "asg-web-tier-wss-lab-sec-001"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+
+  tags = {
+    tier = "web"
+    role = "application"
+  }
+}
+
+resource "azurerm_application_security_group" "asg_mgmt_tier" {
+  name                = "asg-mgmt-tier-wss-lab-sec-001"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+
+  tags = {
+    tier = "management"
+    role = "administration"
+  }
+}
+
+resource "azurerm_application_security_group" "asg_lb_backend" {
+  name                = "asg-lb-backend-wss-lab-sec-001"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+
+  tags = {
+    tier = "web"
+    role = "load-balanced"
+  }
+}
+
+resource "azurerm_application_security_group" "asg_quarantine" {
+  name                = "asg-quarantine-wss-lab-sec-001"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+
+  tags = {
+    tier = "security"
+    role = "incident-response"
+  }
+}
+
+#============================================================================
 # NETWORK SECURITY GROUPS
 #============================================================================
 
@@ -25,31 +73,56 @@ resource "azurerm_network_security_group" "nsg_sub_apps" {
   location            = var.location
   resource_group_name = var.resource_group_name
 
+  # Allow RDP from management tier to web tier
   security_rule {
-    name                       = "RDP"
-    priority                   = 300
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "3389"
-    source_address_prefix      = "10.100.0.0/24"
-    destination_address_prefix = "*"
+    name                                       = "AllowRDPFromMgmt"
+    priority                                   = 300
+    direction                                  = "Inbound"
+    access                                     = "Allow"
+    protocol                                   = "Tcp"
+    source_port_range                          = "*"
+    destination_port_range                     = "3389"
+    source_application_security_group_ids      = [azurerm_application_security_group.asg_mgmt_tier.id]
+    destination_application_security_group_ids = [azurerm_application_security_group.asg_web_tier.id]
+  }
+
+  # Allow HTTPS from Internet to load-balanced backend
+  security_rule {
+    name                                       = "AllowHTTPSFromInternet"
+    priority                                   = 250
+    direction                                  = "Inbound"
+    access                                     = "Allow"
+    protocol                                   = "Tcp"
+    source_port_range                          = "*"
+    destination_port_range                     = "443"
+    source_address_prefix                      = "Internet"
+    destination_application_security_group_ids = [azurerm_application_security_group.asg_lb_backend.id]
+  }
+
+  # Deny all traffic to/from quarantined VMs
+  security_rule {
+    name                                  = "DenyAllFromQuarantine"
+    priority                              = 100
+    direction                             = "Outbound"
+    access                                = "Deny"
+    protocol                              = "*"
+    source_port_range                     = "*"
+    destination_port_range                = "*"
+    source_application_security_group_ids = [azurerm_application_security_group.asg_quarantine.id]
+    destination_address_prefix            = "*"
   }
 
   security_rule {
-    name                       = "HTTPS"
-    priority                   = 250
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "443"
-    source_address_prefix      = "Internet"
-    destination_address_prefix = "*"
+    name                                       = "DenyAllToQuarantine"
+    priority                                   = 100
+    direction                                  = "Inbound"
+    access                                     = "Deny"
+    protocol                                   = "*"
+    source_port_range                          = "*"
+    destination_port_range                     = "*"
+    source_address_prefix                      = "*"
+    destination_application_security_group_ids = [azurerm_application_security_group.asg_quarantine.id]
   }
-
-
 }
 
 resource "azurerm_network_security_group" "nsg_sub_mgmt" {
@@ -57,19 +130,43 @@ resource "azurerm_network_security_group" "nsg_sub_mgmt" {
   location            = var.location
   resource_group_name = var.resource_group_name
 
+  # Allow RDP from specific public IP to management tier
   security_rule {
-    name                       = "AllowRDPFromSpecificIP"
-    priority                   = 300
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "3389"
-    source_address_prefix      = "109.41.113.107/32"
-    destination_address_prefix = "*"
+    name                                       = "AllowRDPFromSpecificIP"
+    priority                                   = 300
+    direction                                  = "Inbound"
+    access                                     = "Allow"
+    protocol                                   = "Tcp"
+    source_port_range                          = "*"
+    destination_port_range                     = "3389"
+    source_address_prefix                      = "109.41.113.107/32"
+    destination_application_security_group_ids = [azurerm_application_security_group.asg_mgmt_tier.id]
   }
 
+  # Deny all traffic to/from quarantined VMs
+  security_rule {
+    name                                  = "DenyAllFromQuarantine"
+    priority                              = 100
+    direction                             = "Outbound"
+    access                                = "Deny"
+    protocol                              = "*"
+    source_port_range                     = "*"
+    destination_port_range                = "*"
+    source_application_security_group_ids = [azurerm_application_security_group.asg_quarantine.id]
+    destination_address_prefix            = "*"
+  }
 
+  security_rule {
+    name                                       = "DenyAllToQuarantine"
+    priority                                   = 100
+    direction                                  = "Inbound"
+    access                                     = "Deny"
+    protocol                                   = "*"
+    source_port_range                          = "*"
+    destination_port_range                     = "*"
+    source_address_prefix                      = "*"
+    destination_application_security_group_ids = [azurerm_application_security_group.asg_quarantine.id]
+  }
 }
 
 #=============================================================================
@@ -85,8 +182,6 @@ resource "azurerm_virtual_network" "vnet_shared" {
   tags = {
     owner = "amir"
   }
-
-
 }
 
 resource "azurerm_subnet" "sub_apps" {
@@ -109,16 +204,6 @@ resource "azurerm_subnet" "sub_mgmt" {
 
   private_endpoint_network_policies             = "Disabled"
   private_link_service_network_policies_enabled = true
-
-  depends_on = [azurerm_virtual_network.vnet_shared]
-}
-
-# Azure Bastion requires a subnet named exactly "AzureBastionSubnet"
-resource "azurerm_subnet" "sub_bastion" {
-  name                 = "AzureBastionSubnet"
-  resource_group_name  = var.resource_group_name
-  virtual_network_name = azurerm_virtual_network.vnet_shared.name
-  address_prefixes     = ["10.100.2.0/26"] # Minimum /26 required for Bastion
 
   depends_on = [azurerm_virtual_network.vnet_shared]
 }
@@ -160,19 +245,6 @@ resource "azurerm_public_ip" "pip_lb" {
   zones                   = ["1", "2", "3"]
   ip_version              = "IPv4"
   idle_timeout_in_minutes = 4
-
-
-}
-
-resource "azurerm_public_ip" "pip_bastion" {
-  name                    = "pip-bastion-wss-lab-sec-001"
-  location                = var.location
-  resource_group_name     = var.resource_group_name
-  allocation_method       = "Static"
-  sku                     = "Standard"
-  ip_version              = "IPv4"
-  idle_timeout_in_minutes = 4
-
 }
 
 #=============================================================================
@@ -300,6 +372,63 @@ resource "azurerm_network_interface" "nic_web2" {
 }
 
 #=============================================================================
+# NIC TO ASG ASSOCIATIONS
+#=============================================================================
+
+# Management VM associations
+resource "azurerm_network_interface_application_security_group_association" "nic_mgmt_asg" {
+  network_interface_id          = azurerm_network_interface.nic_mgmt.id
+  application_security_group_id = azurerm_application_security_group.asg_mgmt_tier.id
+
+  depends_on = [
+    azurerm_network_interface.nic_mgmt,
+    azurerm_application_security_group.asg_mgmt_tier
+  ]
+}
+
+# Web1 VM associations
+resource "azurerm_network_interface_application_security_group_association" "nic_web1_asg_web_tier" {
+  network_interface_id          = azurerm_network_interface.nic_web1.id
+  application_security_group_id = azurerm_application_security_group.asg_web_tier.id
+
+  depends_on = [
+    azurerm_network_interface.nic_web1,
+    azurerm_application_security_group.asg_web_tier
+  ]
+}
+
+resource "azurerm_network_interface_application_security_group_association" "nic_web1_asg_lb_backend" {
+  network_interface_id          = azurerm_network_interface.nic_web1.id
+  application_security_group_id = azurerm_application_security_group.asg_lb_backend.id
+
+  depends_on = [
+    azurerm_network_interface.nic_web1,
+    azurerm_application_security_group.asg_lb_backend
+  ]
+}
+
+# Web2 VM associations
+resource "azurerm_network_interface_application_security_group_association" "nic_web2_asg_web_tier" {
+  network_interface_id          = azurerm_network_interface.nic_web2.id
+  application_security_group_id = azurerm_application_security_group.asg_web_tier.id
+
+  depends_on = [
+    azurerm_network_interface.nic_web2,
+    azurerm_application_security_group.asg_web_tier
+  ]
+}
+
+resource "azurerm_network_interface_application_security_group_association" "nic_web2_asg_lb_backend" {
+  network_interface_id          = azurerm_network_interface.nic_web2.id
+  application_security_group_id = azurerm_application_security_group.asg_lb_backend.id
+
+  depends_on = [
+    azurerm_network_interface.nic_web2,
+    azurerm_application_security_group.asg_lb_backend
+  ]
+}
+
+#=============================================================================
 # NIC BACKEND POOL ASSOCIATIONS
 #=============================================================================
 
@@ -414,34 +543,6 @@ resource "azurerm_windows_virtual_machine" "vm_web2" {
 }
 
 #=============================================================================
-# AZURE BASTION
-#=============================================================================
-
-resource "azurerm_bastion_host" "bastion" {
-  name                = "bas-wss-lab-sec-001"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  sku                 = "Standard"
-
-  # Optional: Enable copy/paste, file transfer, and shareable link features
-  copy_paste_enabled     = true
-  file_copy_enabled      = true
-  shareable_link_enabled = false
-  tunneling_enabled      = true
-
-  ip_configuration {
-    name                 = "bastion-ipconfig"
-    subnet_id            = azurerm_subnet.sub_bastion.id
-    public_ip_address_id = azurerm_public_ip.pip_bastion.id
-  }
-
-  depends_on = [
-    azurerm_subnet.sub_bastion,
-    azurerm_public_ip.pip_bastion
-  ]
-}
-
-#=============================================================================
 # RECOVERY SERVICES VAULT
 #=============================================================================
 
@@ -451,8 +552,6 @@ resource "azurerm_recovery_services_vault" "rsv" {
   resource_group_name = var.resource_group_name
   sku                 = "Standard"
   soft_delete_enabled = true
-
-
 }
 
 #=============================================================================
@@ -465,8 +564,6 @@ resource "azurerm_log_analytics_workspace" "law" {
   resource_group_name = var.resource_group_name
   sku                 = "PerGB2018"
   retention_in_days   = 30
-
-
 }
 
 #=============================================================================
@@ -483,8 +580,6 @@ resource "azurerm_storage_account" "stblc" {
   # Security settings
   min_tls_version                 = "TLS1_2"
   allow_nested_items_to_be_public = false
-
-
 }
 
 #=============================================================================
@@ -494,8 +589,6 @@ resource "azurerm_storage_account" "stblc" {
 resource "azurerm_private_dns_zone" "dns_zone" {
   name                = "test.local"
   resource_group_name = var.resource_group_name
-
-
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "dns_vnet_link" {
