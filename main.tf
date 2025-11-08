@@ -62,7 +62,7 @@ resource "azurerm_key_vault" "vm_credentials" {
   purge_protection_enabled   = true
 
   # Enable RBAC for access control (modern approach)
-  enable_rbac_authorization = true
+  rbac_authorization_enabled = true
 
   # Network rules for additional security
   network_acls {
