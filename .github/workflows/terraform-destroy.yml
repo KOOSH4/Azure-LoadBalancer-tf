@@ -1,0 +1,79 @@
+name: 'Terraform Destroy'
+
+on:
+  workflow_dispatch:  # Manual trigger only - prevents accidental destruction
+    inputs:
+      confirm_destroy:
+        description: 'Type "destroy" to confirm destruction of all resources'
+        required: true
+        type: string
+
+env:
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_USE_OIDC: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  terraform-destroy:
+    name: 'Terraform Destroy'
+    runs-on: ubuntu-latest
+    environment: production  # Optional: add environment protection rules
+    
+    steps:
+    - name: Validate Destroy Confirmation
+      run: |
+        if [ "${{ github.event.inputs.confirm_destroy }}" != "destroy" ]; then
+          echo "❌ Destroy confirmation failed. You must type 'destroy' to proceed."
+          exit 1
+        fi
+        echo "✅ Destroy confirmation validated"
+    
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Azure Login (OIDC)
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.9.0  # Use your preferred version
+    
+    - name: Terraform Init
+      run: terraform init
+    
+    - name: Terraform Plan Destroy
+      run: terraform plan -destroy -out=destroy.tfplan
+      env:
+        TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+        TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+        TF_VAR_resource_group_name: ${{ secrets.TF_VAR_RESOURCE_GROUP_NAME }}
+        TF_VAR_location: ${{ secrets.TF_VAR_LOCATION }}
+        TF_VAR_admin_username: ${{ secrets.TF_VAR_ADMIN_USERNAME }}
+        TF_VAR_allowed_rdp_ip: ${{ secrets.TF_VAR_ALLOWED_RDP_IP }}
+    
+    - name: Terraform Apply Destroy
+      run: terraform apply -auto-approve destroy.tfplan
+      env:
+        TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+        TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+        TF_VAR_resource_group_name: ${{ secrets.TF_VAR_RESOURCE_GROUP_NAME }}
+        TF_VAR_location: ${{ secrets.TF_VAR_LOCATION }}
+        TF_VAR_admin_username: ${{ secrets.TF_VAR_ADMIN_USERNAME }}
+        TF_VAR_allowed_rdp_ip: ${{ secrets.TF_VAR_ALLOWED_RDP_IP }}
+    
+    - name: Destroy Complete
+      run: |
+        echo "🎯 Terraform destroy completed successfully"
+        echo "All resources have been removed from Azure"
