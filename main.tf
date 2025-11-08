@@ -88,9 +88,9 @@ resource "azurerm_role_assignment" "kv_secrets_officer" {
   principal_id         = data.azurerm_client_config.current.object_id
 }
 
-# ============================================================================
+# ===========================================================================
 # KEY VAULT SECRETS - Store VM credentials
-# ============================================================================
+# ===========================================================================
 
 resource "azurerm_key_vault_secret" "vm_admin_username" {
   name         = "vm-admin-username"
