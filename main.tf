@@ -1,5 +1,5 @@
 # ============================================================================
-# MAIN.TF 
+# MAIN.TF - Key Vault Integration for VM Credentials
 # ============================================================================
 
 terraform {
@@ -49,7 +49,7 @@ resource "random_password" "vm_admin_password" {
 }
 
 # ============================================================================
-# KEY VAULT - For storing VM credentials and Certificates
+# KEY VAULT - For storing VM credentials
 # ============================================================================
 
 resource "azurerm_key_vault" "vm_credentials" {
@@ -62,7 +62,7 @@ resource "azurerm_key_vault" "vm_credentials" {
   purge_protection_enabled   = true
 
   # Enable RBAC for access control (modern approach)
-  rbac_authorization_enabled = true
+  enable_rbac_authorization = true
 
   # Network rules for additional security
   network_acls {
@@ -77,6 +77,7 @@ resource "azurerm_key_vault" "vm_credentials" {
   }
 }
 
+
 # ============================================================================
 # KEY VAULT RBAC ASSIGNMENTS
 # ============================================================================
@@ -88,9 +89,9 @@ resource "azurerm_role_assignment" "kv_secrets_officer" {
   principal_id         = data.azurerm_client_config.current.object_id
 }
 
-# ===========================================================================
+# ============================================================================
 # KEY VAULT SECRETS - Store VM credentials
-# ===========================================================================
+# ============================================================================
 
 resource "azurerm_key_vault_secret" "vm_admin_username" {
   name         = "vm-admin-username"
@@ -109,10 +110,14 @@ resource "azurerm_key_vault_secret" "vm_admin_password" {
 
   tags = {
     CreatedBy = "Terraform"
-    RotateOn  = timeadd(timestamp(), "2160h") # 90 days
+    Purpose   = "VM-Admin-Credentials"
   }
 
   depends_on = [azurerm_role_assignment.kv_secrets_officer]
+  
+  lifecycle {
+    ignore_changes = [tags]
+  }
 }
 
 # ============================================================================
@@ -120,7 +125,7 @@ resource "azurerm_key_vault_secret" "vm_admin_password" {
 # ============================================================================
 
 resource "azurerm_application_security_group" "asg_web_tier" {
-  name                = "asg-web-tier-wss-lab-sec-001"
+  name                = "ASG-WEB-TIER-WSS-LAB-SEC-001"
   location            = var.location
   resource_group_name = var.resource_group_name
 
@@ -131,7 +136,7 @@ resource "azurerm_application_security_group" "asg_web_tier" {
 }
 
 resource "azurerm_application_security_group" "asg_mgmt_tier" {
-  name                = "asg-mgmt-tier-wss-lab-sec-001"
+  name                = "ASG-MGMT-TIER-WSS-LAB-SEC-001"
   location            = var.location
   resource_group_name = var.resource_group_name
 
@@ -142,7 +147,7 @@ resource "azurerm_application_security_group" "asg_mgmt_tier" {
 }
 
 resource "azurerm_application_security_group" "asg_lb_backend" {
-  name                = "asg-lb-backend-wss-lab-sec-001"
+  name                = "ASG-LB-BACKEND-WSS-LAB-SEC-001"
   location            = var.location
   resource_group_name = var.resource_group_name
 
@@ -153,7 +158,7 @@ resource "azurerm_application_security_group" "asg_lb_backend" {
 }
 
 resource "azurerm_application_security_group" "asg_quarantine" {
-  name                = "asg-quarantine-wss-lab-sec-001"
+  name                = "ASG-QUARANTINE-WSS-LAB-SEC-001"
   location            = var.location
   resource_group_name = var.resource_group_name
 
