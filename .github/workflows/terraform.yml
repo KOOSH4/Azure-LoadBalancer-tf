@@ -54,6 +54,20 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
+      - name: Import Existing Key Vault Secrets
+        if: github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && github.event_name == 'push')
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC: true
+        run: |
+          terraform import azurerm_key_vault_secret.vm_admin_username \
+            "https://kv-wss-lab-sec-001.vault.azure.net/secrets/vm-admin-username/900a65841fb44291b61f97290936c9c3" || true
+          terraform import azurerm_key_vault_secret.vm_admin_password \
+            "https://kv-wss-lab-sec-001.vault.azure.net/secrets/vm-admin-password/395e0f9c3a874197b563752db491ba61" || true
+
+
       - name: Terraform Plan
         id: plan
         if: github.event_name == 'pull_request'
