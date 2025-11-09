@@ -120,15 +120,17 @@ resource "azurerm_key_vault_secret" "vm_admin_password" {
 # KEY VAULT Certificates
 # ============================================================================
 
-resource "azurerm_key_vault_certificate" "vm_mngmnt_cert" {
+/*resource "azurerm_key_vault_certificate" "vm_mngmnt_cert" {
   name         = "imported-cert"
   key_vault_id = azurerm_key_vault.vm_credentials.id
 
-  //certificate {
-    //contents = filebase64("certificate-to-import.pfx")
-    //password = ""
- // }
+  certificate {
+    ontents = filebase64("certificate-to-import.pfx")
+   password = ""
 }
+}*/
+
+
 # ============================================================================
 # APPLICATION SECURITY GROUPS
 # ============================================================================
