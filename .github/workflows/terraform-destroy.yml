@@ -50,7 +50,7 @@ jobs:
     
     - name: Terraform Init
       run: terraform init
-    
+
     - name: Terraform Plan Destroy
       run: terraform plan -destroy -out=destroy.tfplan
       env:
