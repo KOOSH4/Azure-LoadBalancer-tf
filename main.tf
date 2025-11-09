@@ -125,7 +125,7 @@ resource "azurerm_key_vault_certificate" "vm_mngmnt_cert" {
   key_vault_id = azurerm_key_vault.vm_credentials.id
 
   certificate {
-    contents = filebase64("certificate-to-import.pfx")
+    contents = filebase64("")
     password = ""
   }
 }
