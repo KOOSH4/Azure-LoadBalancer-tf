@@ -82,6 +82,11 @@ resource "azurerm_role_assignment" "kv_secrets_officer" {
   principal_id         = data.azurerm_client_config.current.object_id
 }
 
+resource "azurerm_role_assignment" "kv_certificates_officer" {
+  scope                = azurerm_key_vault.vm_credentials.id
+  role_definition_name = "Key Vault Certificates Officer"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
 # ============================================================================
 # KEY VAULT SECRETS
 # ============================================================================
@@ -111,7 +116,19 @@ resource "azurerm_key_vault_secret" "vm_admin_password" {
     ignore_changes = [tags]
   }
 }
+# ============================================================================
+# KEY VAULT Certificates
+# ============================================================================
 
+resource "azurerm_key_vault_certificate" "vm_mngmnt_cert" {
+  name         = "imported-cert"
+  key_vault_id = azurerm_key_vault.vm_credentials.id
+
+  certificate {
+    contents = filebase64("certificate-to-import.pfx")
+    password = ""
+  }
+}
 # ============================================================================
 # APPLICATION SECURITY GROUPS
 # ============================================================================
