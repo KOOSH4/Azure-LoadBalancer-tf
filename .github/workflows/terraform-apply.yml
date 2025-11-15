@@ -2,8 +2,6 @@ name: Terraform Apply
 
 on:
   push:
-    branches:
-      - main
 
 permissions:
   id-token: write
@@ -16,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Azure Login
         uses: azure/login@v1
@@ -53,13 +51,8 @@ jobs:
           TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
         run: terraform apply -auto-approve
 
-      - name: Display Key Vault Information
-        env:
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          ARM_USE_OIDC: true
+      - name: Display Deployment Info
         run: |
           echo "============================================"
-          echo "Deployment Complete"
+          echo "✅ Deployment Complete"
           echo "============================================"

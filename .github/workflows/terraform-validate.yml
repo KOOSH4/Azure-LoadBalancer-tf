@@ -1,7 +1,7 @@
 name: Terraform Validate
 
 on:
-  pull_request:
+  push:
 
 permissions:
   id-token: write
@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
@@ -21,8 +21,8 @@ jobs:
       - name: Terraform Format Check
         run: terraform fmt -check
 
-      - name: Terraform Init (No Backend Access)
+      - name: Terraform Init (No Backend)
         run: terraform init -backend=false
 
-      - name: terraform validate
+      - name: Terraform Validate
         run: terraform validate
