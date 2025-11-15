@@ -27,9 +27,9 @@ provider "azurerm" {
   client_id       = var.client_id
   tenant_id       = var.tenant_id
 }
-# ============================================================================
+# ===========================================================================
 # DATA SOURCES
-# ============================================================================
+# ===========================================================================
 
 data "azurerm_client_config" "current" {}
 
@@ -742,7 +742,6 @@ resource "azurerm_recovery_services_vault" "rsv" {
   sku                 = "Standard"
   soft_delete_enabled = true
 }
-
 # ============================================================================
 # LOG ANALYTICS WORKSPACE
 # ============================================================================
@@ -752,11 +751,11 @@ resource "azurerm_log_analytics_workspace" "law" {
   location            = var.location
   resource_group_name = var.resource_group_name
   sku                 = "PerGB2018"
-  retention_in_days   = 30
+  retention_in_days   = 7  # Fast queries for 7 days
 }
 
 # ============================================================================
-# STORAGE ACCOUNTS
+# STORAGE ACCOUNT FOR LOG EXPORT
 # ============================================================================
 
 resource "azurerm_storage_account" "stblc" {
@@ -765,11 +764,95 @@ resource "azurerm_storage_account" "stblc" {
   location                 = var.location
   account_tier             = "Standard"
   account_replication_type = "LRS"
+  access_tier              = "Hot"
 
   min_tls_version                 = "TLS1_2"
   allow_nested_items_to_be_public = false
 }
 
+# ============================================================================
+# STORAGE CONTAINERS
+# ============================================================================
+
+resource "azurerm_storage_container" "insights_logs_activity" {
+  name                  = "insights-logs-activity"
+  storage_account_id  = azurerm_storage_account.stblc.id
+  container_access_type = "private"
+}
+
+resource "azurerm_storage_container" "insights_logs_security" {
+  name                  = "insights-logs-security"
+  storage_account_id  = azurerm_storage_account.stblc.id
+  container_access_type = "private"
+}
+
+resource "azurerm_storage_container" "insights_logs_resource" {
+  name                  = "insights-logs-resource"
+  storage_account_id  = azurerm_storage_account.stblc.id
+  container_access_type = "private"
+}
+
+resource "azurerm_storage_container" "insights_logs_networking" {
+  name                  = "insights-logs-networking"
+  storage_account_id  = azurerm_storage_account.stblc.id
+  container_access_type = "private"
+}
+
+resource "azurerm_storage_container" "insights_logs_app" {
+  name                  = "insights-logs-app"
+  storage_account_id  = azurerm_storage_account.stblc.id
+  container_access_type = "private"
+}
+
+# ============================================================================
+# LIFECYCLE MANAGEMENT POLICY
+# ============================================================================
+
+resource "azurerm_storage_management_policy" "lifecycle" {
+  storage_account_id = azurerm_storage_account.stblc.id
+
+  rule {
+    name    = "log-lifecycle"
+    enabled = true
+
+    filters {
+      prefix_match = ["insights-logs/"]
+      blob_types   = ["blockBlob"]
+    }
+
+    actions {
+      base_blob {
+        tier_to_cool_after_days_since_modification_greater_than    = 30
+        tier_to_archive_after_days_since_modification_greater_than = 180
+      }
+    }
+  }
+}
+
+# ============================================================================
+# LINKED STORAGE ACCOUNT
+# ============================================================================
+
+resource "azurerm_log_analytics_linked_storage_account" "law_storage" {
+  data_source_type      = "CustomLogs"
+  resource_group_name   = var.resource_group_name
+  workspace_resource_id = azurerm_log_analytics_workspace.law.id
+  storage_account_ids   = [azurerm_storage_account.stblc.id]
+}
+
+# ============================================================================
+# DATA EXPORT RULES
+# ============================================================================
+
+# Export all tables to storage (selective approach recommended)
+resource "azurerm_log_analytics_data_export_rule" "export_all" {
+  name                    = "export-all-tables"
+  resource_group_name     = var.resource_group_name
+  workspace_resource_id   = azurerm_log_analytics_workspace.law.id
+  destination_resource_id = azurerm_storage_account.stblc.id
+  table_names             = ["*"]  # Export all tables
+  enabled                 = true
+}
 # ============================================================================
 # PRIVATE DNS ZONE
 # ============================================================================

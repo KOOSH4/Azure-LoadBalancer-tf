@@ -1,6 +1,6 @@
 # Terraform - local directories
 .terraform/
-
+GEMINI.md
 # Terraform state files and backups (may contain secrets)
 *.tfstate
 *.tfstate.*
