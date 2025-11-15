@@ -58,7 +58,7 @@ resource "azurerm_key_vault" "vm_credentials" {
   tenant_id                  = data.azurerm_client_config.current.tenant_id
   sku_name                   = "standard"
   soft_delete_retention_days = 7
-  rbac_authorization_enabled  = true
+  rbac_authorization_enabled = true
 
   network_acls {
     bypass         = "AzureServices"
@@ -751,7 +751,7 @@ resource "azurerm_log_analytics_workspace" "law" {
   location            = var.location
   resource_group_name = var.resource_group_name
   sku                 = "PerGB2018"
-  retention_in_days   = 7  # Fast queries for 7 days
+  retention_in_days   = 7 # Fast queries for 7 days
 }
 
 # ============================================================================
@@ -776,31 +776,31 @@ resource "azurerm_storage_account" "stblc" {
 
 resource "azurerm_storage_container" "insights_logs_activity" {
   name                  = "insights-logs-activity"
-  storage_account_id  = azurerm_storage_account.stblc.id
+  storage_account_id    = azurerm_storage_account.stblc.id
   container_access_type = "private"
 }
 
 resource "azurerm_storage_container" "insights_logs_security" {
   name                  = "insights-logs-security"
-  storage_account_id  = azurerm_storage_account.stblc.id
+  storage_account_id    = azurerm_storage_account.stblc.id
   container_access_type = "private"
 }
 
 resource "azurerm_storage_container" "insights_logs_resource" {
   name                  = "insights-logs-resource"
-  storage_account_id  = azurerm_storage_account.stblc.id
+  storage_account_id    = azurerm_storage_account.stblc.id
   container_access_type = "private"
 }
 
 resource "azurerm_storage_container" "insights_logs_networking" {
   name                  = "insights-logs-networking"
-  storage_account_id  = azurerm_storage_account.stblc.id
+  storage_account_id    = azurerm_storage_account.stblc.id
   container_access_type = "private"
 }
 
 resource "azurerm_storage_container" "insights_logs_app" {
   name                  = "insights-logs-app"
-  storage_account_id  = azurerm_storage_account.stblc.id
+  storage_account_id    = azurerm_storage_account.stblc.id
   container_access_type = "private"
 }
 
@@ -850,7 +850,7 @@ resource "azurerm_log_analytics_data_export_rule" "export_all" {
   resource_group_name     = var.resource_group_name
   workspace_resource_id   = azurerm_log_analytics_workspace.law.id
   destination_resource_id = azurerm_storage_account.stblc.id
-  table_names             = ["*"]  # Export all tables
+  table_names             = ["*"] # Export all tables
   enabled                 = true
 }
 # ============================================================================

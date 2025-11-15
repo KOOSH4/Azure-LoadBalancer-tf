@@ -42,7 +42,7 @@ variable "allowed_rdp_ip" {
   description = "IP address allowed to RDP into management VM"
   type        = string
   default     = "109.41.113.107/32"
-  
+
   validation {
     condition     = can(regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$", var.allowed_rdp_ip))
     error_message = "The allowed_rdp_ip must be a valid CIDR notation (e.g., 109.41.113.107/32)."
