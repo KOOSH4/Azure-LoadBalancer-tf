@@ -428,10 +428,10 @@ resource "azurerm_lb" "lb" {
   resource_group_name = var.resource_group_name
   sku                 = "Standard"
 
-  /*frontend_ip_configuration {
+  frontend_ip_configuration {
     name                 = "PIP-LB"
     public_ip_address_id = azurerm_public_ip.pip_lb.id
-  }*/
+  }
 
   depends_on = [azurerm_public_ip.pip_lb]
 }

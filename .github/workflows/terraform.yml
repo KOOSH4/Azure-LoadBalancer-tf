@@ -94,34 +94,3 @@ jobs:
           echo "============================================"
           echo "✅ Deployment Complete!"
           echo "============================================"
-          terraform output -raw instructions || echo "Unable to display instructions"
-          
-      - name: Retrieve and Display VM Credentials
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          echo ""
-          echo "============================================"
-          echo "🔐 VM Credentials Retrieved from Key Vault"
-          echo "============================================"
-          
-          # Get Key Vault name from Terraform output
-          KV_NAME=$(terraform output -raw key_vault_name 2>/dev/null || echo "")
-          
-          if [ -n "$KV_NAME" ]; then
-            echo "Key Vault Name: $KV_NAME"
-            echo ""
-            echo "Username:"
-            az keyvault secret show \
-              --vault-name "$KV_NAME" \
-              --name vm-admin-username \
-              --query value -o tsv 2>/dev/null || echo "Unable to retrieve username"
-            
-            echo ""
-            echo "Password: [REDACTED - Available in Key Vault]"
-            echo ""
-            echo "To retrieve the password, run:"
-            echo "az keyvault secret show --vault-name $KV_NAME --name vm-admin-password --query value -o tsv"
-          else
-            echo "⚠️  Key Vault not yet created or output not available"
-          fi
-          echo "============================================"
