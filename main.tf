@@ -777,8 +777,8 @@ resource "azurerm_monitor_autoscale_setting" "vmss_zone1_autoscale" {
     name = "businessHoursProfile"
 
     capacity {
-      default = 2
-      minimum = 2
+      default = 1
+      minimum = 1
       maximum = 5
     }
 
@@ -907,8 +907,8 @@ resource "azurerm_monitor_autoscale_setting" "vmss_zone2_autoscale" {
     name = "businessHoursProfile"
 
     capacity {
-      default = 2
-      minimum = 2
+      default = 1
+      minimum = 1
       maximum = 5
     }
 
