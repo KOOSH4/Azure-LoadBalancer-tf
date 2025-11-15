@@ -751,7 +751,7 @@ resource "azurerm_log_analytics_workspace" "law" {
   location            = var.location
   resource_group_name = var.resource_group_name
   sku                 = "PerGB2018"
-  retention_in_days   = 7 # Fast queries for 7 days
+  retention_in_days   = 30 # Fast queries for 30 days
 }
 
 # ============================================================================
