@@ -812,9 +812,9 @@ resource "azurerm_monitor_autoscale_setting" "vmss_zone1_autoscale" {
   depends_on = [azurerm_windows_virtual_machine_scale_set.vmss_web_zone1]
 }
 
-# ============================================================================
-# AUTOSCALE SETTINGS - ZONE 2
-# ============================================================================
+# ===========================================================================
+# AUTOSCALE SETTINGS - ZONE 2v
+# ===========================================================================
 
 resource "azurerm_monitor_autoscale_setting" "vmss_zone2_autoscale" {
   name                = "autoscale-vmss-zone2"
