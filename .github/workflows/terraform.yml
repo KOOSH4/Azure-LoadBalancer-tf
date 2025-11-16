@@ -1,5 +1,3 @@
-# .github/workflows/terraform.yml
-
 name: 'Terraform CI/CD with Key Vault'
 
 on:
@@ -7,6 +5,16 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:  # Allow manual trigger
+    inputs:
+      run_import:
+        description: 'Run Terraform import'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
 permissions:
   id-token: write
@@ -54,9 +62,24 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
+      # Import resources if needed (manual trigger or when import file changes)
+      - name: Run Terraform Import
+        if: |
+          github.event.inputs.run_import == 'true' || 
+          (github.event_name == 'push' && contains(github.event.head_commit.modified, 'terraform-imports.yml'))
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC: true
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          CONTINUE_ON_ERROR: true  # Set to false to stop on first import error
+        run: |
+          chmod +x import-resources.sh
+          ./import-resources.sh terraform-imports.yml
 
-
-        
       - name: Terraform Plan
         id: plan
         if: github.event_name == 'pull_request'
