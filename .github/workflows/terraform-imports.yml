@@ -1,29 +1,13 @@
-name: 'Terraform Import'
+name: 'Terraform Import Resources'
 
 on:
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Environment to import resources into'
-        required: true
-        type: choice
-        options:
-          - production
-          - staging
-          - development
       state_file_key:
         description: 'State file name (without .tfstate)'
         required: false
         default: 'loadbalancer.prod'
         type: string
-      continue_on_error:
-        description: 'Continue importing even if one resource fails'
-        required: false
-        default: 'true'
-        type: choice
-        options:
-          - 'true'
-          - 'false'
 
 permissions:
   id-token: write
@@ -31,9 +15,9 @@ permissions:
 
 jobs:
   terraform-import:
-    name: 'Terraform Import Resources'
+    name: 'Import Existing Resources'
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
+    environment: production
 
     steps:
       - name: Checkout
@@ -50,7 +34,6 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         
       - name: Terraform Init
-        id: init
         env:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
@@ -64,10 +47,7 @@ jobs:
             -backend-config="key=${{ github.event.inputs.state_file_key }}.tfstate" \
             -backend-config="use_oidc=true"
 
-      - name: Make Import Script Executable
-        run: chmod +x import-resources.sh
-
-      - name: Run Terraform Import
+      - name: Import Resources
         env:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
@@ -76,18 +56,99 @@ jobs:
           TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          CONTINUE_ON_ERROR: ${{ github.event.inputs.continue_on_error }}
         run: |
-          ./import-resources.sh terraform-imports.yml
+          echo "============================================"
+          echo "🔄 Starting Terraform Import Process"
+          echo "============================================"
+          echo ""
+          
+          # Track statistics
+          IMPORTED=0
+          ALREADY_IMPORTED=0
+          FAILED=0
+          
+          # Function to import a resource
+          import_resource() {
+            local resource=$1
+            local id=$2
+            local description=$3
+            
+            echo "────────────────────────────────────────"
+            echo "📦 $description"
+            echo "   Resource: $resource"
+            echo "   ID: $id"
+            echo ""
+            
+            if terraform import "$resource" "$id" 2>&1 | tee /tmp/import_output.txt; then
+              if grep -q "Resource already managed by Terraform" /tmp/import_output.txt; then
+                echo "⚠️  Already imported"
+                ALREADY_IMPORTED=$((ALREADY_IMPORTED + 1))
+              else
+                echo "✅ Successfully imported"
+                IMPORTED=$((IMPORTED + 1))
+              fi
+            else
+              echo "❌ Import failed (might already be in state or resource doesn't exist)"
+              FAILED=$((FAILED + 1))
+            fi
+            echo ""
+          }
+          
+          # Import Key Vault (if not already managed)
+          # Note: Key Vault might already be in state, so we try to import it
+          import_resource \
+            "azurerm_key_vault.vm_credentials" \
+            "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/rg-kolad-sch/providers/Microsoft.KeyVault/vaults/kv-wss-lab-sec-001" \
+            "Import Key Vault"
+          
+          # Import Key Vault Secrets
+          import_resource \
+            "azurerm_key_vault_secret.vm_admin_username" \
+            "https://kv-wss-lab-sec-001.vault.azure.net/secrets/vm-admin-username" \
+            "Import Key Vault admin username secret"
+          
+          import_resource \
+            "azurerm_key_vault_secret.vm_admin_password" \
+            "https://kv-wss-lab-sec-001.vault.azure.net/secrets/vm-admin-password" \
+            "Import Key Vault admin password secret"
+          
+          # Import Log Analytics Linked Storage Account
+          import_resource \
+            "azurerm_log_analytics_linked_storage_account.law_storage" \
+            "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/rg-kolad-sch/providers/Microsoft.OperationalInsights/workspaces/log-wss-lab-sec-001/linkedStorageAccounts/CustomLogs" \
+            "Import Log Analytics linked storage account"
+          
+          # Import Log Analytics Data Export Rule
+          import_resource \
+            "azurerm_log_analytics_data_export_rule.export_all" \
+            "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/rg-kolad-sch/providers/Microsoft.OperationalInsights/workspaces/log-wss-lab-sec-001/dataExports/export-all-tables" \
+            "Import Log Analytics data export rule"
+          
+          # Print summary
+          echo "============================================"
+          echo "📈 Import Results"
+          echo "============================================"
+          echo "✅ Successfully imported: $IMPORTED"
+          echo "⚠️  Already imported: $ALREADY_IMPORTED"
+          echo "❌ Failed: $FAILED"
+          echo "============================================"
+          echo ""
+          echo "Next steps:"
+          echo "1. Run 'terraform plan' to verify the imported resources"
+          echo "2. Adjust your Terraform configuration if there are differences"
+          echo "3. Run 'terraform apply' when ready"
+          echo "============================================"
 
-      - name: Display Import Summary
-        if: always()
+      - name: Verify State
+        if: success()
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC: true
         run: |
           echo "============================================"
-          echo "📦 Import Operation Complete"
+          echo "📋 Current State Resources"
           echo "============================================"
-          echo "Environment: ${{ github.event.inputs.environment }}"
-          echo "State file: ${{ github.event.inputs.state_file_key }}.tfstate"
-          echo "Executed by: ${{ github.actor }}"
-          echo "Timestamp: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          terraform state list
           echo "============================================"

@@ -5,16 +5,7 @@ on:
     branches:
       - main
   pull_request:
-  workflow_dispatch:  # Allow manual trigger
-    inputs:
-      run_import:
-        description: 'Run Terraform import'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'true'
-          - 'false'
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -61,24 +52,6 @@ jobs:
 
       - name: Terraform Validate
         run: terraform validate
-
-      # Optional: Import resources if manually triggered
-      - name: Make Import Script Executable
-        if: github.event.inputs.run_import == 'true'
-        run: chmod +x import-resources.sh
-      
-      - name: Run Terraform Import
-        if: github.event.inputs.run_import == 'true'
-        env:
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          ARM_USE_OIDC: true
-          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
-          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          CONTINUE_ON_ERROR: true  # Set to false to stop on first import error
-        run: ./import-resources.sh terraform-imports.yml
 
       - name: Terraform Plan
         id: plan
