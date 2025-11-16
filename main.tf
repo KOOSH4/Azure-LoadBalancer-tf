@@ -413,7 +413,7 @@ resource "azurerm_public_ip" "pip_lb" {
   resource_group_name     = var.resource_group_name
   allocation_method       = "Static"
   sku                     = "Standard"
-  zones                   = ["1", "2"]
+  zones                   = ["1", "2", "3"]
   ip_version              = "IPv4"
   idle_timeout_in_minutes = 4
 }
@@ -421,7 +421,6 @@ resource "azurerm_public_ip" "pip_lb" {
 # ============================================================================
 # LOAD BALANCER
 # ============================================================================
-
 resource "azurerm_lb" "lb" {
   name                = "lbi-wss-lab-sec-001"
   location            = var.location
@@ -449,7 +448,7 @@ resource "azurerm_lb_probe" "hp_lb" {
   protocol            = "Tcp"
   port                = 443
   interval_in_seconds = 5
-  number_of_probes    = 2
+  number_of_probes    = 1
 
   depends_on = [azurerm_lb.lb]
 }
@@ -489,6 +488,7 @@ resource "azurerm_lb_outbound_rule" "out_lb" {
     azurerm_lb_rule.lb_rule
   ]
 }
+
 
 # ============================================================================
 # MANAGEMENT VM (Single VM)
