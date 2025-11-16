@@ -552,6 +552,75 @@ resource "azurerm_windows_virtual_machine" "vm_mgmt" {
 }
 
 # ============================================================================
+# VMSS - ZONE 1
+# ============================================================================
+
+resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone1" {
+  name                = "vmss-app1"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  sku                 = "Standard_D2as_v5"
+  instances           = 1
+  admin_username      = azurerm_key_vault_secret.vm_admin_username.value
+  admin_password      = azurerm_key_vault_secret.vm_admin_password.value
+
+  zones        = ["1"]
+  zone_balance = false
+
+  upgrade_mode    = "Automatic"
+  health_probe_id = azurerm_lb_probe.hp_lb.id
+
+  source_image_reference {
+    publisher = "MicrosoftWindowsServer"
+    offer     = "WindowsServer"
+    sku       = "2022-datacenter-azure-edition"
+    version   = "latest"
+  }
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+
+  network_interface {
+    name    = "nic-vmss-zone1"
+    primary = true
+
+    ip_configuration {
+      name                                   = "internal"
+      primary                                = true
+      subnet_id                              = azurerm_subnet.sub_apps.id
+      load_balancer_backend_address_pool_ids = [azurerm_lb_backend_address_pool.pool_webs.id]
+
+      application_security_group_ids = [
+        azurerm_application_security_group.asg_web_tier.id,
+        azurerm_application_security_group.asg_lb_backend.id
+      ]
+    }
+  }
+
+  automatic_instance_repair {
+    enabled      = true
+    grace_period = "PT30M"
+  }
+
+  tags = {
+    Environment = "Lab"
+    Zone        = "1"
+    Tier        = "Web"
+  }
+
+  depends_on = [
+    azurerm_subnet.sub_apps,
+    azurerm_lb_backend_address_pool.pool_webs,
+    azurerm_lb_probe.hp_lb,
+    azurerm_application_security_group.asg_web_tier,
+    azurerm_application_security_group.asg_lb_backend,
+    azurerm_key_vault_secret.vm_admin_password
+  ]
+}
+
+# ============================================================================
 # VMSS - ZONE 2
 # ============================================================================
 
@@ -618,6 +687,129 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone2" {
     azurerm_application_security_group.asg_lb_backend,
     azurerm_key_vault_secret.vm_admin_password
   ]
+}
+
+# ============================================================================
+# AUTOSCALE SETTINGS - ZONE 1
+# ============================================================================
+
+resource "azurerm_monitor_autoscale_setting" "vmss_zone1_autoscale" {
+  name                = "autoscale-vmss-zone1"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  target_resource_id  = azurerm_windows_virtual_machine_scale_set.vmss_web_zone1.id
+
+  profile {
+    name = "defaultProfile"
+
+    capacity {
+      default = 1
+      minimum = 1
+      maximum = 5
+    }
+
+    # Scale OUT when CPU > 75%
+    rule {
+      metric_trigger {
+        metric_name        = "Percentage CPU"
+        metric_resource_id = azurerm_windows_virtual_machine_scale_set.vmss_web_zone1.id
+        time_grain         = "PT1M"
+        statistic          = "Average"
+        time_window        = "PT5M"
+        time_aggregation   = "Average"
+        operator           = "GreaterThan"
+        threshold          = 75
+      }
+
+      scale_action {
+        direction = "Increase"
+        type      = "ChangeCount"
+        value     = "1"
+        cooldown  = "PT5M"
+      }
+    }
+
+    # Scale IN when CPU < 25%
+    rule {
+      metric_trigger {
+        metric_name        = "Percentage CPU"
+        metric_resource_id = azurerm_windows_virtual_machine_scale_set.vmss_web_zone1.id
+        time_grain         = "PT1M"
+        statistic          = "Average"
+        time_window        = "PT10M"
+        time_aggregation   = "Average"
+        operator           = "LessThan"
+        threshold          = 25
+      }
+
+      scale_action {
+        direction = "Decrease"
+        type      = "ChangeCount"
+        value     = "1"
+        cooldown  = "PT10M"
+      }
+    }
+
+    # Scale OUT when Memory > 80%
+    rule {
+      metric_trigger {
+        metric_name        = "Available Memory Bytes"
+        metric_resource_id = azurerm_windows_virtual_machine_scale_set.vmss_web_zone1.id
+        time_grain         = "PT1M"
+        statistic          = "Average"
+        time_window        = "PT5M"
+        time_aggregation   = "Average"
+        operator           = "LessThan"
+        threshold          = 1073741824 # 1GB in bytes
+      }
+
+      scale_action {
+        direction = "Increase"
+        type      = "ChangeCount"
+        value     = "1"
+        cooldown  = "PT5M"
+      }
+    }
+  }
+
+  # Schedule-based scaling for business hours
+  profile {
+    name = "businessHoursProfile"
+
+    capacity {
+      default = 1
+      minimum = 1
+      maximum = 5
+    }
+
+    recurrence {
+      timezone = "Central European Standard Time"
+      days     = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+      hours    = [8]
+      minutes  = [0]
+    }
+  }
+
+  # Scale back after business hours
+  profile {
+    name = "afterHoursProfile"
+
+    capacity {
+      default = 1
+      minimum = 1
+      maximum = 3
+    }
+
+    recurrence {
+      timezone = "Central European Standard Time"
+      days     = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+      hours    = [18]
+      minutes  = [0]
+    }
+  }
+
+
+  depends_on = [azurerm_windows_virtual_machine_scale_set.vmss_web_zone1]
 }
 
 # ============================================================================
@@ -738,7 +930,6 @@ resource "azurerm_monitor_autoscale_setting" "vmss_zone2_autoscale" {
       minutes  = [0]
     }
   }
-
 
 
   depends_on = [azurerm_windows_virtual_machine_scale_set.vmss_web_zone2]
