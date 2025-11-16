@@ -53,7 +53,7 @@ variable "allowed_rdp_ip" {
 variable "autoscale_notification_emails" {
   description = "List of email addresses to notify on autoscale events"
   type        = list(string)
-  default     = ["koosha.olad@g,aol.com"]
+  default     = ["koosha.olad@gmail.com"]
 }
 
 # ===========================================================================
