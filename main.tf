@@ -19,7 +19,7 @@ provider "azurerm" {
   features {
     key_vault {
       purge_soft_delete_on_destroy    = false
-      recover_soft_deleted_key_vaults = true
+      recover_soft_deleted_key_vaults = false
     }
   }
   use_oidc        = true
@@ -53,7 +53,7 @@ resource "random_password" "vm_admin_password" {
 # ============================================================================
 
 resource "azurerm_key_vault" "vm_credentials" {
-  name                       = "kv-wss-lab-sec-001"
+  name                       = "kv-wss-lab-sec-002"
   location                   = var.location
   resource_group_name        = var.resource_group_name
   tenant_id                  = data.azurerm_client_config.current.tenant_id
@@ -625,7 +625,7 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone1" {
 # ============================================================================
 
 resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone2" {
-  name                = "vmss-app1-sec"
+  name                = "vmss-app2-sec"
   location            = var.location
   resource_group_name = var.resource_group_name
   sku                 = "Standard_D2as_v5"
