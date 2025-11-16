@@ -556,7 +556,7 @@ resource "azurerm_windows_virtual_machine" "vm_mgmt" {
 # ============================================================================
 
 resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone1" {
-  name                = "vmss-app1-sec"
+  name                = "vmss-app1"
   location            = var.location
   resource_group_name = var.resource_group_name
   sku                 = "Standard_D2as_v5"
@@ -625,7 +625,7 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone1" {
 # ============================================================================
 
 resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone2" {
-  name                = "vmss-app2-sec"
+  name                = "vmss-app2"
   location            = var.location
   resource_group_name = var.resource_group_name
   sku                 = "Standard_D2as_v5"
