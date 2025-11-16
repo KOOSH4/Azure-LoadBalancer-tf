@@ -1,34 +1,93 @@
-# Terraform Import Configuration
-# This file contains all resources that need to be imported into Terraform state
-# Format: 
-#   - resource: The Terraform resource address (e.g., azurerm_key_vault_secret.vm_admin_username)
-#   - id: The Azure resource ID or URL
-#   - description: Human-readable description of what's being imported
-#   - enabled: Set to false to skip this import (optional, defaults to true)
+name: 'Terraform Import'
 
-imports:
-  - resource: azurerm_key_vault_secret.vm_admin_username
-    id: "https://kv-wss-lab-sec-001.vault.azure.net/secrets/vm-admin-username"
-    description: "Import the Key Vault admin username secret"
-    enabled: true
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to import resources into'
+        required: true
+        type: choice
+        options:
+          - production
+          - staging
+          - development
+      state_file_key:
+        description: 'State file name (without .tfstate)'
+        required: false
+        default: 'loadbalancer.prod'
+        type: string
+      continue_on_error:
+        description: 'Continue importing even if one resource fails'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
-  - resource: azurerm_key_vault_secret.vm_admin_password
-    id: "https://kv-wss-lab-sec-001.vault.azure.net/secrets/vm-admin-password"
-    description: "Import the Key Vault admin password secret"
-    enabled: true
+permissions:
+  id-token: write
+  contents: read
 
-  - resource: azurerm_log_analytics_linked_storage_account.law_storage
-    id: "/subscriptions/***/resourceGroups/rg-kolad-sch/providers/Microsoft.OperationalInsights/workspaces/log-wss-lab-sec-001/linkedStorageAccounts/CustomLogs"
-    description: "Import the Log Analytics linked storage account"
-    enabled: true
+jobs:
+  terraform-import:
+    name: 'Terraform Import Resources'
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
 
-  - resource: azurerm_log_analytics_data_export_rule.export_all
-    id: "/subscriptions/***/resourceGroups/rg-kolad-sch/providers/Microsoft.OperationalInsights/workspaces/log-wss-lab-sec-001/dataExports/export-all-tables"
-    description: "Import the Log Analytics data export rule"
-    enabled: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
 
-  # Add more imports here as needed
-  # - resource: azurerm_resource_group.example
-  #   id: "/subscriptions/***/resourceGroups/rg-example"
-  #   description: "Import example resource group"
-  #   enabled: false  # This import will be skipped
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        
+      - name: Terraform Init
+        id: init
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC: true
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ vars.BACKEND_RESOURCE_GROUP_NAME }}" \
+            -backend-config="storage_account_name=${{ vars.BACKEND_STORAGE_ACCOUNT_NAME }}" \
+            -backend-config="container_name=${{ vars.BACKEND_CONTAINER_NAME }}" \
+            -backend-config="key=${{ github.event.inputs.state_file_key }}.tfstate" \
+            -backend-config="use_oidc=true"
+
+      - name: Make Import Script Executable
+        run: chmod +x import-resources.sh
+
+      - name: Run Terraform Import
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC: true
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          CONTINUE_ON_ERROR: ${{ github.event.inputs.continue_on_error }}
+        run: |
+          ./import-resources.sh terraform-imports.yml
+
+      - name: Display Import Summary
+        if: always()
+        run: |
+          echo "============================================"
+          echo "📦 Import Operation Complete"
+          echo "============================================"
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "State file: ${{ github.event.inputs.state_file_key }}.tfstate"
+          echo "Executed by: ${{ github.actor }}"
+          echo "Timestamp: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          echo "============================================"
