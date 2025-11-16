@@ -739,13 +739,7 @@ resource "azurerm_monitor_autoscale_setting" "vmss_zone2_autoscale" {
     }
   }
 
-  notification {
-    email {
-      send_to_subscription_administrator    = true
-      send_to_subscription_co_administrator = false
-      custom_emails                         = var.autoscale_notification_emails
-    }
-  }
+
 
   depends_on = [azurerm_windows_virtual_machine_scale_set.vmss_web_zone2]
 }
