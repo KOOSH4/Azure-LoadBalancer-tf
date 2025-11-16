@@ -53,7 +53,7 @@ resource "random_password" "vm_admin_password" {
 # ============================================================================
 
 resource "azurerm_key_vault" "vm_credentials" {
-  name                       = "kv-wss-lab-sec-002"
+  name                       = "kv-wss-lab-sec-010"
   location                   = var.location
   resource_group_name        = var.resource_group_name
   tenant_id                  = data.azurerm_client_config.current.tenant_id
@@ -966,7 +966,7 @@ resource "azurerm_recovery_services_vault" "rsv" {
 # ============================================================================
 
 resource "azurerm_log_analytics_workspace" "law" {
-  name                = "log-wss-lab-sec-001"
+  name                = "log-wss-lab-sec-010"
   location            = var.location
   resource_group_name = var.resource_group_name
   sku                 = "PerGB2018"
