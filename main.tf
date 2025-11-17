@@ -481,9 +481,6 @@ resource "azurerm_monitor_diagnostic_setting" "lb_diagnostics" {
   target_resource_id         = azurerm_lb.lb.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
 
-  enabled_log {
-    category = "LoadBalancerAlertEvent"
-  }
 
 
   enabled_metric {
@@ -1031,19 +1028,6 @@ resource "azurerm_monitor_autoscale_setting" "vmss_zone2_autoscale" {
   depends_on = [azurerm_windows_virtual_machine_scale_set.vmss_web_zone2]
 }
 
-# ============================================================================
-# RECOVERY SERVICES VAULT (Legacy - for file/folder backup)
-# ============================================================================
-
-resource "azurerm_recovery_services_vault" "rsv" {
-  name                = "rsv-wss-lab-sec-001"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  sku                 = "Standard"
-  soft_delete_enabled = true
-
-  tags = local.common_tags
-}
 
 # ============================================================================
 # BACKUP VAULT (Azure Backup Vault for modern workloads)
@@ -1083,11 +1067,7 @@ resource "azurerm_monitor_diagnostic_setting" "backup_vault_diagnostics" {
   }
 
   enabled_log {
-    category = "AddonAzureBackupJobs"
-  }
-
-  enabled_log {
-    category = "AddonAzureBackupAlerts"
+    category = "AddonAzureBackupJob"
   }
 
   enabled_log {
@@ -1095,11 +1075,12 @@ resource "azurerm_monitor_diagnostic_setting" "backup_vault_diagnostics" {
   }
 
   enabled_log {
-    category = "AddonAzureBackupProtectedInstance"
+    category = "AAddonAzureBackupProtectedInstance"
   }
 
+
   enabled_metric {
-    category = "AllMetrics"
+    category = "Health"
 
   }
 
