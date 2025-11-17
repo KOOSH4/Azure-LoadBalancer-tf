@@ -104,7 +104,7 @@ resource "azurerm_monitor_diagnostic_setting" "kv_diagnostics" {
 
   enabled_metric {
     category = "AllMetrics"
-    
+
   }
 
   depends_on = [azurerm_log_analytics_workspace.law]
@@ -426,12 +426,12 @@ resource "azurerm_monitor_diagnostic_setting" "storage_diagnostics" {
 
   enabled_metric {
     category = "Transaction"
-    
+
   }
 
   enabled_metric {
     category = "Capacity"
-    
+
   }
 }
 
@@ -491,7 +491,7 @@ resource "azurerm_monitor_diagnostic_setting" "lb_diagnostics" {
 
   enabled_metric {
     category = "AllMetrics"
-    
+
   }
 }
 
@@ -656,7 +656,7 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone1" {
       primary                                = true
       subnet_id                              = azurerm_subnet.sub_apps.id
       load_balancer_backend_address_pool_ids = [azurerm_lb_backend_address_pool.pool_webs.id]
-      
+
       # FIXED: Only reference asg_web_tier
       application_security_group_ids = [
         azurerm_application_security_group.asg_web_tier.id
@@ -694,7 +694,7 @@ resource "azurerm_monitor_diagnostic_setting" "vmss_zone1_diagnostics" {
 
   enabled_metric {
     category = "AllMetrics"
-    
+
   }
 }
 
@@ -738,8 +738,8 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone2" {
       primary                                = true
       subnet_id                              = azurerm_subnet.sub_apps.id
       load_balancer_backend_address_pool_ids = [azurerm_lb_backend_address_pool.pool_webs.id]
-      
- 
+
+
       application_security_group_ids = [
         azurerm_application_security_group.asg_web_tier.id
       ]
@@ -776,7 +776,7 @@ resource "azurerm_monitor_diagnostic_setting" "vmss_zone2_diagnostics" {
 
   enabled_metric {
     category = "AllMetrics"
-    
+
   }
 }
 
@@ -1107,7 +1107,7 @@ resource "azurerm_monitor_diagnostic_setting" "backup_vault_diagnostics" {
 
   enabled_metric {
     category = "AllMetrics"
-    
+
   }
 
   depends_on = [azurerm_log_analytics_workspace.law]
