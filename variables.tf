@@ -57,7 +57,7 @@ variable "autoscale_notification_emails" {
 }
 
 # ===========================================================================
-# VMSS CONFIGURATION VARIABLES (Optional - for easier tuning)
+# VMSS CONFIGURATION VARIABLES 
 # ===========================================================================
 
 variable "vmss_sku" {
