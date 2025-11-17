@@ -67,7 +67,7 @@ resource "random_password" "vm_admin_password" {
 # ============================================================================
 
 resource "azurerm_key_vault" "vm_credentials" {
-  name                       = "kv-wss-lab-sec-011"
+  name                       = "kv-wss-lab-sec-012"
   location                   = var.location
   resource_group_name        = var.resource_group_name
   tenant_id                  = data.azurerm_client_config.current.tenant_id
@@ -181,7 +181,6 @@ resource "azurerm_application_security_group" "asg_mgmt_tier" {
   })
 }
 
-# Note: Removed asg_lb_backend as it was referenced but not defined
 # VMSS NICs will only use asg_web_tier
 
 # ===========================================================================
@@ -385,7 +384,7 @@ resource "azurerm_subnet_network_security_group_association" "sub_mgmt_nsg" {
 # ============================================================================
 
 resource "azurerm_log_analytics_workspace" "law" {
-  name                = "log-wss-lab-sec-011"
+  name                = "log-wss-lab-sec-012"
   location            = var.location
   resource_group_name = var.resource_group_name
   sku                 = "PerGB2018"
@@ -618,7 +617,7 @@ resource "azurerm_windows_virtual_machine" "vm_mgmt" {
 }
 
 # ============================================================================
-# VMSS - ZONE 1 (FIXED ASG ASSOCIATION)
+# VMSS - ZONE 1
 # ============================================================================
 
 resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone1" {
@@ -700,7 +699,7 @@ resource "azurerm_monitor_diagnostic_setting" "vmss_zone1_diagnostics" {
 }
 
 # ============================================================================
-# VMSS - ZONE 2 (FIXED ASG ASSOCIATION)
+# VMSS - ZONE 2
 # ============================================================================
 
 resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone2" {
@@ -740,7 +739,7 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone2" {
       subnet_id                              = azurerm_subnet.sub_apps.id
       load_balancer_backend_address_pool_ids = [azurerm_lb_backend_address_pool.pool_webs.id]
       
-      # FIXED: Only reference asg_web_tier
+ 
       application_security_group_ids = [
         azurerm_application_security_group.asg_web_tier.id
       ]
@@ -1202,7 +1201,7 @@ resource "azurerm_log_analytics_data_export_rule" "export_all" {
 # ============================================================================
 
 resource "azurerm_private_dns_zone" "dns_zone" {
-  name                = "test.local"
+  name                = "wss.local"
   resource_group_name = var.resource_group_name
 
   tags = local.common_tags
@@ -1228,7 +1227,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "dns_vnet_link" {
 # ============================================================================
 
 resource "azurerm_private_dns_a_record" "dns_vm_mgmt" {
-  name                = "vm-mgmt-demo-sw"
+  name                = "pdns-rec-wss-mgmt"
   zone_name           = azurerm_private_dns_zone.dns_zone.name
   resource_group_name = var.resource_group_name
   ttl                 = 10
