@@ -1039,10 +1039,8 @@ resource "azurerm_data_protection_backup_vault" "backup_vault" {
   resource_group_name = var.resource_group_name
   datastore_type      = "VaultStore"
   redundancy          = "LocallyRedundant"
-
-  identity {
-    type = "SystemAssigned"
-  }
+  soft_delete = Off
+  
 
   tags = merge(local.common_tags, {
     Purpose = "Modern-Backup-Vault"
