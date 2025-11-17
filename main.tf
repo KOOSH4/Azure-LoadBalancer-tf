@@ -485,9 +485,6 @@ resource "azurerm_monitor_diagnostic_setting" "lb_diagnostics" {
     category = "LoadBalancerAlertEvent"
   }
 
-  enabled_log {
-    category = "LoadBalancerProbeHealthStatus"
-  }
 
   enabled_metric {
     category = "AllMetrics"
@@ -1095,10 +1092,6 @@ resource "azurerm_monitor_diagnostic_setting" "backup_vault_diagnostics" {
 
   enabled_log {
     category = "AddonAzureBackupPolicy"
-  }
-
-  enabled_log {
-    category = "AddonAzureBackupStorage"
   }
 
   enabled_log {
