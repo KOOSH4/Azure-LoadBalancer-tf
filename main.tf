@@ -67,7 +67,7 @@ resource "random_password" "vm_admin_password" {
 # ============================================================================
 
 resource "azurerm_key_vault" "vm_credentials" {
-  name                       = "kv-wss-lab-sec-013"
+  name                       = "kv-wss-lab-sec-014"
   location                   = var.location
   resource_group_name        = var.resource_group_name
   tenant_id                  = data.azurerm_client_config.current.tenant_id
@@ -314,7 +314,23 @@ resource "azurerm_network_security_rule" "mgmt_allow_rdp_from_specific_ip" {
     azurerm_network_security_group.nsg_sub_mgmt
   ]
 }
+resource "azurerm_network_security_rule" "apps_allow_health_probe" {
+  name                        = "AllowAzureLoadBalancerInbound"
+  priority                    = 200
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "*"
+  source_port_range           = "*"
+  destination_port_range      = "*"
+  source_address_prefix       = "AzureLoadBalancer"
+  destination_address_prefix  = "*"
+  resource_group_name         = var.resource_group_name
+  network_security_group_name = azurerm_network_security_group.nsg_sub_apps.name
 
+  depends_on = [
+    azurerm_network_security_group.nsg_sub_apps
+  ]
+}
 # ============================================================================
 # VIRTUAL NETWORK AND SUBNETS
 # ============================================================================
@@ -384,7 +400,7 @@ resource "azurerm_subnet_network_security_group_association" "sub_mgmt_nsg" {
 # ============================================================================
 
 resource "azurerm_log_analytics_workspace" "law" {
-  name                = "log-wss-lab-sec-013"
+  name                = "log-wss-lab-sec-014"
   location            = var.location
   resource_group_name = var.resource_group_name
   sku                 = "PerGB2018"
@@ -651,7 +667,7 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone1" {
       subnet_id                              = azurerm_subnet.sub_apps.id
       load_balancer_backend_address_pool_ids = [azurerm_lb_backend_address_pool.pool_webs.id]
 
-      # FIXED: Only reference asg_web_tier
+      
       application_security_group_ids = [
         azurerm_application_security_group.asg_web_tier.id
       ]
@@ -673,7 +689,8 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone1" {
     azurerm_lb_backend_address_pool.pool_webs,
     azurerm_lb_probe.hp_lb,
     azurerm_application_security_group.asg_web_tier,
-    azurerm_key_vault_secret.vm_admin_password
+    azurerm_key_vault_secret.vm_admin_password,
+    azurerm_lb_rule.lb_rule
   ]
 }
 
@@ -755,7 +772,8 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone2" {
     azurerm_lb_backend_address_pool.pool_webs,
     azurerm_lb_probe.hp_lb,
     azurerm_application_security_group.asg_web_tier,
-    azurerm_key_vault_secret.vm_admin_password
+    azurerm_key_vault_secret.vm_admin_password,
+    azurerm_lb_rule.lb_rule
   ]
 }
 
