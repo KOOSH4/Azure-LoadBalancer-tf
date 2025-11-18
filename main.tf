@@ -1064,9 +1064,6 @@ resource "azurerm_monitor_diagnostic_setting" "backup_vault_diagnostics" {
     category = "AddonAzureBackupJobs"
   }
 
-  enabled_log {
-    category = "Logs"
-  }
 
   enabled_metric {
     category = "Health"
