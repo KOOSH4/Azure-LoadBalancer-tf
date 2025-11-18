@@ -67,7 +67,7 @@ resource "random_password" "vm_admin_password" {
 # ============================================================================
 
 resource "azurerm_key_vault" "vm_credentials" {
-  name                       = "kv-wss-lab-sec-012"
+  name                       = "kv-wss-lab-sec-013"
   location                   = var.location
   resource_group_name        = var.resource_group_name
   tenant_id                  = data.azurerm_client_config.current.tenant_id
@@ -384,7 +384,7 @@ resource "azurerm_subnet_network_security_group_association" "sub_mgmt_nsg" {
 # ============================================================================
 
 resource "azurerm_log_analytics_workspace" "law" {
-  name                = "log-wss-lab-sec-012"
+  name                = "log-wss-lab-sec-013"
   location            = var.location
   resource_group_name = var.resource_group_name
   sku                 = "PerGB2018"
@@ -1043,7 +1043,7 @@ resource "azurerm_data_protection_backup_vault" "backup_vault" {
   
 
   tags = merge(local.common_tags, {
-    Purpose = "Modern-Backup-Vault"
+    Purpose = "Backup-Vault"
   })
 }
 
