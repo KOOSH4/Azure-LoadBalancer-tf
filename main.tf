@@ -1057,25 +1057,16 @@ resource "azurerm_monitor_diagnostic_setting" "backup_vault_diagnostics" {
   log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
 
   enabled_log {
-    category = "AzureBackupReport"
-  }
-
-  enabled_log {
     category = "CoreAzureBackup"
   }
 
   enabled_log {
-    category = "AddonAzureBackupJob"
+    category = "AddonAzureBackupJobs"
   }
 
   enabled_log {
-    category = "AddonAzureBackupPolicy"
+    category = "Logs"
   }
-
-  enabled_log {
-    category = "AAddonAzureBackupProtectedInstance"
-  }
-
 
   enabled_metric {
     category = "Health"
