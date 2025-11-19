@@ -446,6 +446,54 @@ resource "azurerm_storage_account" "stblc" {
 } */
 
 # ============================================================================
+# DATA COLLECTION RULE (DCR)
+# ============================================================================
+
+resource "azurerm_monitor_data_collection_rule" "dcr_vmss" {
+  name                = "dcr-wss-vmss-001"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+
+  destinations {
+    log_analytics {
+      workspace_resource_id = azurerm_log_analytics_workspace.law.id
+      name                  = "law-destination"
+    }
+  }
+
+  data_flow {
+    streams      = ["Microsoft-InsightsMetrics", "Microsoft-Event", "Microsoft-Perf"]
+    destinations = ["law-destination"]
+  }
+
+  data_sources {
+    performance_counter {
+      streams                       = ["Microsoft-Perf", "Microsoft-InsightsMetrics"]
+      sampling_frequency_in_seconds = 60
+      counter_specifiers = [
+        "\\Processor Information(_Total)\\% Processor Time",
+        "\\Memory\\Available Bytes",
+        "\\Memory\\% Committed Bytes In Use",
+        "\\LogicalDisk(_Total)\\% Disk Time",
+        "\\LogicalDisk(_Total)\\Free Megabytes",
+        "\\LogicalDisk(_Total)\\% Free Space"
+      ]
+      name = "perf-counters"
+    }
+
+    windows_event_log {
+      streams = ["Microsoft-Event"]
+      x_path_queries = [
+        "Application!*[System[(Level=1 or Level=2 or Level=3)]]",
+        "System!*[System[(Level=1 or Level=2 or Level=3)]]"
+      ]
+      name = "event-logs"
+    }
+  }
+
+  depends_on = [azurerm_log_analytics_workspace.law]
+}
+# ============================================================================
 # PUBLIC IP ADDRESSES
 # ============================================================================
 
@@ -650,6 +698,9 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone1" {
     caching              = "ReadWrite"
     storage_account_type = "Standard_LRS"
   }
+  identity {
+    type = "SystemAssigned"
+  }
 
   network_interface {
     name    = "nic-vmss-zone1"
@@ -661,13 +712,19 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone1" {
       subnet_id                              = azurerm_subnet.sub_apps.id
       load_balancer_backend_address_pool_ids = [azurerm_lb_backend_address_pool.pool_webs.id]
 
-      
+
       application_security_group_ids = [
         azurerm_application_security_group.asg_web_tier.id
       ]
     }
   }
-
+  extension {
+    name                       = "AzureMonitorWindowsAgent"
+    publisher                  = "Microsoft.Azure.Monitor"
+    type                       = "AzureMonitorWindowsAgent"
+    type_handler_version       = "1.0"
+    auto_upgrade_minor_version = true
+  }
   automatic_instance_repair {
     enabled      = true
     grace_period = "PT30M"
@@ -733,7 +790,9 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone2" {
     caching              = "ReadWrite"
     storage_account_type = "Standard_LRS"
   }
-
+  identity {
+    type = "SystemAssigned"
+  }
   network_interface {
     name    = "nic-vmss-zone2"
     primary = true
@@ -750,7 +809,13 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone2" {
       ]
     }
   }
-
+  extension {
+    name                       = "AzureMonitorWindowsAgent"
+    publisher                  = "Microsoft.Azure.Monitor"
+    type                       = "AzureMonitorWindowsAgent"
+    type_handler_version       = "1.0"
+    auto_upgrade_minor_version = true
+  }
   automatic_instance_repair {
     enabled      = true
     grace_period = "PT30M"
@@ -785,7 +850,21 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone2" {
 
   }
 } */
+# ============================================================================
+# DCR ASSOCIATIONS
+# ============================================================================
 
+resource "azurerm_monitor_data_collection_rule_association" "dcra_zone1" {
+  name                    = "dcra-vmss-zone1"
+  target_resource_id      = azurerm_windows_virtual_machine_scale_set.vmss_web_zone1.id
+  data_collection_rule_id = azurerm_monitor_data_collection_rule.dcr_vmss.id
+}
+
+resource "azurerm_monitor_data_collection_rule_association" "dcra_zone2" {
+  name                    = "dcra-vmss-zone2"
+  target_resource_id      = azurerm_windows_virtual_machine_scale_set.vmss_web_zone2.id
+  data_collection_rule_id = azurerm_monitor_data_collection_rule.dcr_vmss.id
+}
 # ============================================================================
 # AUTOSCALE SETTINGS - ZONE 1
 # ============================================================================
@@ -1023,7 +1102,8 @@ resource "azurerm_monitor_autoscale_setting" "vmss_zone2_autoscale" {
       timezone = "Central European Standard Time"
       days     = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
       hours    = [var.business_hours_end]
-      minutes  = [0]
+
+      minutes = [0]
     }
   }
 
