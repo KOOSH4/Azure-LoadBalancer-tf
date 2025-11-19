@@ -1052,24 +1052,6 @@ resource "azurerm_monitor_autoscale_setting" "vmss_zone1_autoscale" {
   depends_on = [azurerm_windows_virtual_machine_scale_set.vmss_web_zone1]
 }
 
-
-
-# ============================================================================
-# BACKUP VAULT (Azure Backup Vault for modern workloads)
-# ============================================================================
-
-resource "azurerm_data_protection_backup_vault" "backup_vault" {
-  name                = "bvault-wss-lab-sec-001"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  datastore_type      = "VaultStore"
-  redundancy          = "LocallyRedundant"
-  soft_delete         = "Off"
-
-
-
-}
-
 # ============================================================================
 # BACKUP VAULT DIAGNOSTICS ***
 # ============================================================================
