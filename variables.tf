@@ -69,23 +69,11 @@ variable "vmss_sku" {
 variable "vmss_zone1_min_instances" {
   description = "Minimum instances for Zone 1 VMSS"
   type        = number
-  default     = 1
+  default     = 2
 }
 
 variable "vmss_zone1_max_instances" {
   description = "Maximum instances for Zone 1 VMSS"
-  type        = number
-  default     = 5
-}
-
-variable "vmss_zone2_min_instances" {
-  description = "Minimum instances for Zone 2 VMSS"
-  type        = number
-  default     = 1
-}
-
-variable "vmss_zone2_max_instances" {
-  description = "Maximum instances for Zone 2 VMSS"
   type        = number
   default     = 5
 }
