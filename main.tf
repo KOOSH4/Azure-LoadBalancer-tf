@@ -85,7 +85,7 @@ resource "azurerm_user_assigned_identity" "id_dcr" {
 resource "azurerm_role_assignment" "vmss_metrics_publisher" {
   scope                = azurerm_monitor_data_collection_rule.dcr_vmss.id
   role_definition_name = "Monitoring Metrics Publisher"
-  principal_id         = azurerm_windows_virtual_machine_scale_set.vmss_web_zone1.identity[0].principal_id
+  principal_id         = azurerm_user_assigned_identity.id_dcr.principal_id
 }
 
 resource "azurerm_user_assigned_identity" "id_log" {
