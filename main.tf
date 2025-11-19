@@ -540,7 +540,7 @@ resource "azurerm_lb_outbound_rule" "out_lb" {
   loadbalancer_id          = azurerm_lb.lb.id
   protocol                 = "All"
   backend_address_pool_id  = azurerm_lb_backend_address_pool.pool_webs.id
-  allocated_outbound_ports = 15992
+  allocated_outbound_ports = 10000
   idle_timeout_in_minutes  = 4
 
   frontend_ip_configuration {
