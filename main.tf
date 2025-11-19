@@ -118,10 +118,10 @@ resource "azurerm_private_endpoint" "pep_storage" {
     subresource_names              = ["blob"]
   }
 
-  private_dns_zone_group {
+  /*   private_dns_zone_group {
     name                 = "default"
     private_dns_zone_ids = [azurerm_private_dns_zone.dns_blob.id]
-  }
+  } */
 }
 
 # RSV Private Endpoint
@@ -138,10 +138,10 @@ resource "azurerm_private_endpoint" "pep_rsv" {
     subresource_names              = ["AzureBackup"]
   }
 
-  private_dns_zone_group {
+  /*   private_dns_zone_group {
     name                 = "default"
     private_dns_zone_ids = [azurerm_private_dns_zone.dns_backup.id]
-  }
+  } */
 }
 # ============================================================================
 # KEY VAULT ***
@@ -1181,7 +1181,7 @@ resource "azurerm_recovery_services_vault" "rsv" {
 resource "azurerm_backup_policy_vm" "policy_daily" {
   name                = "DefaultPolicy"
   resource_group_name = var.resource_group_name
-  recovery_vault_name = azurerm_recovery_services_vault.rsv.name # Ensure your RSV resource is uncommented
+  recovery_vault_name = azurerm_recovery_services_vault.rsv.name
   policy_type         = "V2"
   timezone            = "UTC"
 
