@@ -1164,15 +1164,18 @@ resource "azurerm_log_analytics_data_export_rule" "export_logs" {
 # ============================================================================
 # Recovery Services Vault (RSV) & Backup Policy
 # ============================================================================
-/* resource "azurerm_recovery_services_vault" "rsv" {
-  name                = "rsv-wss-prd-sec-1"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  sku                 = "Standard"
-  storage_mode_type   = "LocallyRedundant"
-  soft_delete_enabled = false
-  public_network_access_enabled = false 
-  immutability = Disabled
+resource "azurerm_recovery_services_vault" "rsv" {
+  name                          = "rsv-wss-prd-sec-1"
+  location                      = var.location
+  resource_group_name           = var.resource_group_name
+  sku                           = "Standard"
+  storage_mode_type             = "LocallyRedundant"
+  soft_delete_enabled           = false
+  public_network_access_enabled = false
+  immutability                  = "Disabled"
+  tags = merge(local.common_tags, {
+    Purpose = "Backup"
+  })
 }
 
 resource "azurerm_backup_policy_vm" "policy_daily" {
@@ -1195,10 +1198,8 @@ resource "azurerm_backup_policy_vm" "policy_daily" {
   retention_daily {
     count = 30
   }
-    tags = merge(local.common_tags, {
-    Purpose = "Backup"
-  })
-} */
+
+}
 # ============================================================================
 # PRIVATE DNS ZONE
 # ============================================================================
