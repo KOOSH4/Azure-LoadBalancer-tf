@@ -39,6 +39,7 @@ locals {
     Product     = "WebServe_Solutions"
     Environment = "Prod"
     ManagedBy   = "Terraform"
+    Location    = var.location
   }
 }
 
@@ -63,11 +64,91 @@ resource "random_password" "vm_admin_password" {
 }
 
 # ============================================================================
+# User Assigned Identities
+# ============================================================================
+
+
+resource "azurerm_user_assigned_identity" "id_backup" {
+  location            = var.location
+  name                = "id-wss-bkb-sec-1"
+  resource_group_name = var.resource_group_name
+  tags                = local.common_tags
+}
+
+resource "azurerm_user_assigned_identity" "id_dcr" {
+  location            = var.location
+  name                = "id-wss-vmss-dcr-sec-1"
+  resource_group_name = var.resource_group_name
+  tags                = local.common_tags
+}
+# Allow the VMSS System Identity to publish data to the DCR
+resource "azurerm_role_assignment" "vmss_metrics_publisher" {
+  scope                = azurerm_monitor_data_collection_rule.dcr_vmss.id
+  role_definition_name = "Monitoring Metrics Publisher"
+  principal_id         = azurerm_windows_virtual_machine_scale_set.vmss_web_zone1.identity[0].principal_id
+}
+
+resource "azurerm_user_assigned_identity" "id_log" {
+  location            = var.location
+  name                = "id-wss-log-sec-1"
+  resource_group_name = var.resource_group_name
+  tags                = local.common_tags
+}
+
+resource "azurerm_role_assignment" "law_storage_contributor" {
+  scope                = azurerm_storage_account.stblc.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = azurerm_user_assigned_identity.id_log.principal_id
+}
+# ============================================================================
+# Private Endpoints
+# ============================================================================
+
+# Storage Private Endpoint
+resource "azurerm_private_endpoint" "pep_storage" {
+  name                = "pep-storageaccount-001"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  subnet_id           = azurerm_subnet.sub_apps.id
+
+  private_service_connection {
+    name                           = "pep-storageaccount-01"
+    private_connection_resource_id = azurerm_storage_account.stblc.id
+    is_manual_connection           = false
+    subresource_names              = ["blob"]
+  }
+
+  private_dns_zone_group {
+    name                 = "default"
+    private_dns_zone_ids = [azurerm_private_dns_zone.dns_blob.id]
+  }
+}
+
+# RSV Private Endpoint
+resource "azurerm_private_endpoint" "pep_rsv" {
+  name                = "pep-recoveryvault-wss-001"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  subnet_id           = azurerm_subnet.sub_apps.id
+
+  private_service_connection {
+    name                           = "pep-recoveryvault-wss-01"
+    private_connection_resource_id = azurerm_recovery_services_vault.rsv.id
+    is_manual_connection           = false
+    subresource_names              = ["AzureBackup"]
+  }
+
+  private_dns_zone_group {
+    name                 = "default"
+    private_dns_zone_ids = [azurerm_private_dns_zone.dns_backup.id]
+  }
+}
+# ============================================================================
 # KEY VAULT ***
 # ============================================================================
 
 resource "azurerm_key_vault" "vm_credentials" {
-  name                       = "kv-wss-lab-sec-016"
+  name                       = "kv-wss-sec-016"
   location                   = var.location
   resource_group_name        = var.resource_group_name
   tenant_id                  = data.azurerm_client_config.current.tenant_id
@@ -160,7 +241,7 @@ resource "azurerm_key_vault_secret" "vm_admin_password" {
 # ============================================================================
 
 resource "azurerm_application_security_group" "asg_web_tier" {
-  name                = "asg-web-tier-wss-sec-001"
+  name                = "asg-web-wss-sec-001"
   location            = var.location
   resource_group_name = var.resource_group_name
 
@@ -171,7 +252,7 @@ resource "azurerm_application_security_group" "asg_web_tier" {
 }
 
 resource "azurerm_application_security_group" "asg_mgmt_tier" {
-  name                = "asg-mgmt-tier-wss-sec-001"
+  name                = "asg-mgmt-wss-sec-001"
   location            = var.location
   resource_group_name = var.resource_group_name
 
@@ -188,7 +269,7 @@ resource "azurerm_application_security_group" "asg_mgmt_tier" {
 # ===========================================================================
 
 resource "azurerm_network_security_group" "nsg_sub_apps" {
-  name                = "nsg-wss-lab-sec-001"
+  name                = "nsg-wss-sec-001"
   location            = var.location
   resource_group_name = var.resource_group_name
 
@@ -198,7 +279,7 @@ resource "azurerm_network_security_group" "nsg_sub_apps" {
 }
 
 resource "azurerm_network_security_group" "nsg_sub_mgmt" {
-  name                = "nsg-mgmt-wss-lab-sec-001"
+  name                = "nsg-mgmt-wss-sec-001"
   location            = var.location
   resource_group_name = var.resource_group_name
 
@@ -267,6 +348,20 @@ resource "azurerm_network_security_rule" "apps_allow_rdp_from_mgmt" {
   ]
 }
 
+resource "azurerm_network_security_rule" "apps_allow_https_from_mgmt" {
+  name                                       = "AllowHttpsFromMngmt"
+  priority                                   = 310
+  direction                                  = "Inbound"
+  access                                     = "Allow"
+  protocol                                   = "Tcp"
+  source_port_range                          = "*"
+  destination_port_range                     = "443"
+  source_application_security_group_ids      = [azurerm_application_security_group.asg_mgmt_tier.id]
+  destination_application_security_group_ids = [azurerm_application_security_group.asg_web_tier.id]
+  resource_group_name                        = var.resource_group_name
+  network_security_group_name                = azurerm_network_security_group.nsg_sub_apps.name
+}
+
 resource "azurerm_network_security_rule" "apps_allow_https_from_internet" {
   name                                       = "AllowHTTPSFromInternet"
   priority                                   = 250
@@ -330,7 +425,7 @@ resource "azurerm_network_security_rule" "apps_allow_health_probe" {
 # ============================================================================
 
 resource "azurerm_virtual_network" "vnet_shared" {
-  name                = "vnet-wss-lab-sec-001"
+  name                = "vnet-wss-sec-001"
   location            = var.location
   resource_group_name = var.resource_group_name
   address_space       = ["10.100.0.0/16"]
@@ -388,20 +483,27 @@ resource "azurerm_subnet_network_security_group_association" "sub_mgmt_nsg" {
     azurerm_network_security_rule.mgmt_allow_rdp_from_specific_ip
   ]
 }
-
+# delete AllowHTTPSFromInternet
 # ============================================================================
 # LOG ANALYTICS WORKSPACE ***
 # ============================================================================
 
 resource "azurerm_log_analytics_workspace" "law" {
-  name                = "log-wss-lab-sec-016"
+  name                = "log-wss-sec-016"
   location            = var.location
   resource_group_name = var.resource_group_name
   sku                 = "PerGB2018"
   retention_in_days   = 30
 
+  identity {
+    type = "UserAssigned"
+    identity_ids = [
+      azurerm_user_assigned_identity.id_log.principal_id
+    ]
+  }
+
   tags = merge(local.common_tags, {
-    Purpose = "Centralized-Logging"
+    Purpose = "Logging"
   })
 }
 
@@ -419,6 +521,14 @@ resource "azurerm_storage_account" "stblc" {
 
   min_tls_version                 = "TLS1_2"
   allow_nested_items_to_be_public = false
+  public_network_access_enabled   = true
+
+
+  network_rules {
+    default_action = "Deny"
+    bypass         = ["AzureServices"]
+    ip_rules       = ["2.212.99.105"]
+  }
 
   tags = merge(local.common_tags, {
     Purpose = "Log-Storage"
@@ -450,7 +560,7 @@ resource "azurerm_storage_account" "stblc" {
 # ============================================================================
 
 resource "azurerm_monitor_data_collection_rule" "dcr_vmss" {
-  name                = "dcr-wss-vmss-001"
+  name                = "dcr-vmss-wss-001"
   resource_group_name = var.resource_group_name
   location            = var.location
 
@@ -489,6 +599,14 @@ resource "azurerm_monitor_data_collection_rule" "dcr_vmss" {
       ]
       name = "event-logs"
     }
+
+    # --- NEW SECTION: Add IIS Log Source ---
+    iis_log {
+      streams = ["Microsoft-W3CIISLog"]
+      name    = "iisLogsDataSource"
+      # This path was found in the export
+      log_directories = ["C:\\inetpub\\logs\\LogFiles\\W3SVC1\\u_extend1.log"]
+    }
   }
 
   depends_on = [azurerm_log_analytics_workspace.law]
@@ -498,7 +616,7 @@ resource "azurerm_monitor_data_collection_rule" "dcr_vmss" {
 # ============================================================================
 
 resource "azurerm_public_ip" "pip_lb" {
-  name                    = "pip-lb-wss-lab-sec-001"
+  name                    = "pip-lb-wss-sec-001"
   location                = var.location
   resource_group_name     = var.resource_group_name
   allocation_method       = "Static"
@@ -515,7 +633,7 @@ resource "azurerm_public_ip" "pip_lb" {
 # ============================================================================
 
 resource "azurerm_lb" "lb" {
-  name                = "lbi-wss-lab-sec-001"
+  name                = "lbi-wss-sec-001"
   location            = var.location
   resource_group_name = var.resource_group_name
   sku                 = "Standard"
@@ -601,12 +719,37 @@ resource "azurerm_lb_outbound_rule" "out_lb" {
   ]
 }
 
+resource "azurerm_lb_backend_address_pool" "pool_mgmt" {
+  name            = "backend_mgmt"
+  loadbalancer_id = azurerm_lb.lb.id
+}
+
+resource "azurerm_lb_probe" "hp_3389" {
+  name                = "hp_3389"
+  loadbalancer_id     = azurerm_lb.lb.id
+  protocol            = "Tcp"
+  port                = 3389
+  interval_in_seconds = 5
+  number_of_probes    = 1
+}
+
+resource "azurerm_lb_rule" "rule_3389" {
+  name                           = "Rule_3389"
+  loadbalancer_id                = azurerm_lb.lb.id
+  protocol                       = "Tcp"
+  frontend_port                  = 3389
+  backend_port                   = 3389
+  frontend_ip_configuration_name = "PIP-LB"
+  backend_address_pool_ids       = [azurerm_lb_backend_address_pool.pool_mgmt.id]
+  probe_id                       = azurerm_lb_probe.hp_3389.id
+  disable_outbound_snat          = true
+}
 # ============================================================================
 # MANAGEMENT VM
 # ============================================================================
 
 resource "azurerm_network_interface" "nic_mgmt" {
-  name                = "nic-vm-mgmt-wss-lab-sec-001"
+  name                = "nic-vm-mgmt-wss-sec-001"
   location            = var.location
   resource_group_name = var.resource_group_name
 
@@ -622,6 +765,14 @@ resource "azurerm_network_interface" "nic_mgmt" {
 
   depends_on = [azurerm_subnet.sub_mgmt]
 }
+
+
+resource "azurerm_network_interface_backend_address_pool_association" "nic_mgmt_lb" {
+  network_interface_id    = azurerm_network_interface.nic_mgmt.id
+  ip_configuration_name   = "ipconfig1"
+  backend_address_pool_id = azurerm_lb_backend_address_pool.pool_mgmt.id
+}
+
 
 resource "azurerm_network_interface_application_security_group_association" "nic_mgmt_asg" {
   network_interface_id          = azurerm_network_interface.nic_mgmt.id
@@ -652,7 +803,7 @@ resource "azurerm_windows_virtual_machine" "vm_mgmt" {
   os_disk {
     caching              = "ReadWrite"
     storage_account_type = "Standard_LRS"
-    name                 = "osdisk-vm-mgmt-wss-lab-sec-001"
+    name                 = "osdisk-vm-mgmt-wss-sec-001"
   }
 
   secure_boot_enabled = true
@@ -699,7 +850,11 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone1" {
     storage_account_type = "Standard_LRS"
   }
   identity {
-    type = "SystemAssigned"
+    type = "UserAssigned"
+    identity_ids = [
+      azurerm_user_assigned_identity.id_backup.id,
+      azurerm_user_assigned_identity.id_dcr.id
+    ]
   }
 
   network_interface {
@@ -760,96 +915,6 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone1" {
   }
 } */
 
-# ============================================================================
-# VMSS - ZONE 2
-# ============================================================================
-
-resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone2" {
-  name                = "vmss-app2"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  sku                 = var.vmss_sku
-  instances           = var.vmss_zone2_min_instances
-  admin_username      = azurerm_key_vault_secret.vm_admin_username.value
-  admin_password      = azurerm_key_vault_secret.vm_admin_password.value
-
-  zones        = ["2"]
-  zone_balance = false
-
-  upgrade_mode    = "Automatic"
-  health_probe_id = azurerm_lb_probe.hp_lb.id
-
-  source_image_reference {
-    publisher = "MicrosoftWindowsServer"
-    offer     = "WindowsServer"
-    sku       = "2022-datacenter-azure-edition"
-    version   = "latest"
-  }
-
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
-  }
-  identity {
-    type = "SystemAssigned"
-  }
-  network_interface {
-    name    = "nic-vmss-zone2"
-    primary = true
-
-    ip_configuration {
-      name                                   = "internal"
-      primary                                = true
-      subnet_id                              = azurerm_subnet.sub_apps.id
-      load_balancer_backend_address_pool_ids = [azurerm_lb_backend_address_pool.pool_webs.id]
-
-
-      application_security_group_ids = [
-        azurerm_application_security_group.asg_web_tier.id
-      ]
-    }
-  }
-  extension {
-    name                       = "AzureMonitorWindowsAgent"
-    publisher                  = "Microsoft.Azure.Monitor"
-    type                       = "AzureMonitorWindowsAgent"
-    type_handler_version       = "1.0"
-    auto_upgrade_minor_version = true
-  }
-  automatic_instance_repair {
-    enabled      = true
-    grace_period = "PT30M"
-  }
-
-  tags = merge(local.common_tags, {
-    Zone = "2"
-    Tier = "Web"
-  })
-
-  depends_on = [
-    azurerm_subnet.sub_apps,
-    azurerm_lb_backend_address_pool.pool_webs,
-    azurerm_lb_probe.hp_lb,
-    azurerm_application_security_group.asg_web_tier,
-    azurerm_key_vault_secret.vm_admin_password,
-    azurerm_lb_rule.lb_rule
-  ]
-}
-
-# ============================================================================
-# VMSS DIAGNOSTICS - ZONE 2 ***
-# ============================================================================
-
-/* resource "azurerm_monitor_diagnostic_setting" "vmss_zone2_diagnostics" {
-  name                       = "vmss-zone2-diagnostics1"
-  target_resource_id         = azurerm_windows_virtual_machine_scale_set.vmss_web_zone2.id
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
-
-  enabled_metric {
-    category = "AllMetrics"
-
-  }
-} */
 # ============================================================================
 # DCR ASSOCIATIONS
 # ============================================================================
@@ -1134,9 +1199,7 @@ resource "azurerm_data_protection_backup_vault" "backup_vault" {
   soft_delete         = "Off"
 
 
-  tags = merge(local.common_tags, {
-    Purpose = "Backup-Vault"
-  })
+
 }
 
 # ============================================================================
@@ -1161,43 +1224,10 @@ resource "azurerm_data_protection_backup_vault" "backup_vault" {
     category = "Health"
 
   }
+  
 
   depends_on = [azurerm_log_analytics_workspace.law]
 } */
-
-# ============================================================================
-# STORAGE CONTAINERS
-# ============================================================================
-
-resource "azurerm_storage_container" "insights_logs_activity" {
-  name                  = "insights-logs-activity"
-  storage_account_id    = azurerm_storage_account.stblc.id
-  container_access_type = "private"
-}
-
-resource "azurerm_storage_container" "insights_logs_security" {
-  name                  = "insights-logs-security"
-  storage_account_id    = azurerm_storage_account.stblc.id
-  container_access_type = "private"
-}
-
-resource "azurerm_storage_container" "insights_logs_resource" {
-  name                  = "insights-logs-resource"
-  storage_account_id    = azurerm_storage_account.stblc.id
-  container_access_type = "private"
-}
-
-resource "azurerm_storage_container" "insights_logs_networking" {
-  name                  = "insights-logs-networking"
-  storage_account_id    = azurerm_storage_account.stblc.id
-  container_access_type = "private"
-}
-
-resource "azurerm_storage_container" "insights_logs_app" {
-  name                  = "insights-logs-app"
-  storage_account_id    = azurerm_storage_account.stblc.id
-  container_access_type = "private"
-}
 
 # ============================================================================
 # LIFECYCLE MANAGEMENT POLICY
@@ -1239,15 +1269,68 @@ resource "azurerm_log_analytics_linked_storage_account" "law_storage" {
 # DATA EXPORT RULES
 # ============================================================================
 
-resource "azurerm_log_analytics_data_export_rule" "export_all" {
-  name                    = "export-all-tables"
+resource "azurerm_log_analytics_data_export_rule" "export_logs" {
+  name                    = "export-specific-tables"
   resource_group_name     = var.resource_group_name
   workspace_resource_id   = azurerm_log_analytics_workspace.law.id
   destination_resource_id = azurerm_storage_account.stblc.id
-  table_names             = ["*"]
-  enabled                 = true
+
+  # You MUST list specific tables. Wildcard "*" is not supported.
+  table_names = [
+    "Heartbeat",
+    "Event",
+    "Perf",
+    "Usage",
+    "SecurityEvent",
+    "AzureActivity",
+    "AppServiceHTTPLogs"
+  ]
+
+  enabled = true
+
+  # This relies on the Role Assignment existing first
+  depends_on = [
+    azurerm_role_assignment.law_storage_contributor
+  ]
+}
+# ============================================================================
+# Recovery Services Vault (RSV) & Backup Policy
+# ============================================================================
+/* resource "azurerm_recovery_services_vault" "rsv" {
+  name                = "rsv-wss-prd-sec-1"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  sku                 = "Standard"
+  storage_mode_type   = "LocallyRedundant"
+  soft_delete_enabled = false
+  public_network_access_enabled = false 
+  immutability = Disabled
 }
 
+resource "azurerm_backup_policy_vm" "policy_daily" {
+  name                = "DefaultPolicy"
+  resource_group_name = var.resource_group_name
+  recovery_vault_name = azurerm_recovery_services_vault.rsv.name # Ensure your RSV resource is uncommented
+  policy_type         = "V2"
+  timezone            = "UTC"
+
+  instant_restore_retention_days = 2
+
+
+  backup {
+    frequency     = "Hourly"
+    time          = "08:00"
+    hour_interval = 4
+    hour_duration = 12
+  }
+
+  retention_daily {
+    count = 30
+  }
+    tags = merge(local.common_tags, {
+    Purpose = "Backup"
+  })
+} */
 # ============================================================================
 # PRIVATE DNS ZONE
 # ============================================================================
@@ -1273,6 +1356,8 @@ resource "azurerm_private_dns_zone_virtual_network_link" "dns_vnet_link" {
     azurerm_virtual_network.vnet_shared
   ]
 }
+
+
 
 # ============================================================================
 # PRIVATE DNS A RECORDS
