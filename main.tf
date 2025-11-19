@@ -67,7 +67,7 @@ resource "random_password" "vm_admin_password" {
 # ============================================================================
 
 resource "azurerm_key_vault" "vm_credentials" {
-  name                       = "kv-wss-lab-sec-014"
+  name                       = "kv-wss-lab-sec-015"
   location                   = var.location
   resource_group_name        = var.resource_group_name
   tenant_id                  = data.azurerm_client_config.current.tenant_id
@@ -394,7 +394,7 @@ resource "azurerm_subnet_network_security_group_association" "sub_mgmt_nsg" {
 # ============================================================================
 
 resource "azurerm_log_analytics_workspace" "law" {
-  name                = "log-wss-lab-sec-014"
+  name                = "log-wss-lab-sec-015"
   location            = var.location
   resource_group_name = var.resource_group_name
   sku                 = "PerGB2018"
@@ -429,7 +429,7 @@ resource "azurerm_storage_account" "stblc" {
 # STORAGE ACCOUNT DIAGNOSTICS ***
 # ============================================================================
 
-resource "azurerm_monitor_diagnostic_setting" "storage_diagnostics" {
+/* resource "azurerm_monitor_diagnostic_setting" "storage_diagnostics" {
   name                       = "storage-diagnostics1"
   target_resource_id         = azurerm_storage_account.stblc.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
@@ -443,7 +443,7 @@ resource "azurerm_monitor_diagnostic_setting" "storage_diagnostics" {
     category = "Capacity"
 
   }
-}
+} */
 
 # ============================================================================
 # PUBLIC IP ADDRESSES
@@ -486,7 +486,7 @@ resource "azurerm_lb" "lb" {
 # LOAD BALANCER DIAGNOSTICS ***
 # ============================================================================
 
-resource "azurerm_monitor_diagnostic_setting" "lb_diagnostics" {
+/* resource "azurerm_monitor_diagnostic_setting" "lb_diagnostics" {
   name                       = "lb-diagnostics"
   target_resource_id         = azurerm_lb.lb.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
@@ -497,7 +497,7 @@ resource "azurerm_monitor_diagnostic_setting" "lb_diagnostics" {
     category = "AllMetrics"
 
   }
-}
+} */
 
 resource "azurerm_lb_backend_address_pool" "pool_webs" {
   name            = "Pool-webs"
@@ -692,7 +692,7 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone1" {
 # VMSS DIAGNOSTICS - ZONE 1 ***
 # ============================================================================
 
-resource "azurerm_monitor_diagnostic_setting" "vmss_zone1_diagnostics" {
+/* resource "azurerm_monitor_diagnostic_setting" "vmss_zone1_diagnostics" {
   name                       = "vmss-zone1-diagnostics1"
   target_resource_id         = azurerm_windows_virtual_machine_scale_set.vmss_web_zone1.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
@@ -701,7 +701,7 @@ resource "azurerm_monitor_diagnostic_setting" "vmss_zone1_diagnostics" {
     category = "AllMetrics"
 
   }
-}
+} */
 
 # ============================================================================
 # VMSS - ZONE 2
@@ -775,7 +775,7 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone2" {
 # VMSS DIAGNOSTICS - ZONE 2 ***
 # ============================================================================
 
-resource "azurerm_monitor_diagnostic_setting" "vmss_zone2_diagnostics" {
+/* resource "azurerm_monitor_diagnostic_setting" "vmss_zone2_diagnostics" {
   name                       = "vmss-zone2-diagnostics1"
   target_resource_id         = azurerm_windows_virtual_machine_scale_set.vmss_web_zone2.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
@@ -784,7 +784,7 @@ resource "azurerm_monitor_diagnostic_setting" "vmss_zone2_diagnostics" {
     category = "AllMetrics"
 
   }
-}
+} */
 
 # ============================================================================
 # AUTOSCALE SETTINGS - ZONE 1
@@ -1063,7 +1063,7 @@ resource "azurerm_data_protection_backup_vault" "backup_vault" {
 # BACKUP VAULT DIAGNOSTICS ***
 # ============================================================================
 
-resource "azurerm_monitor_diagnostic_setting" "backup_vault_diagnostics" {
+/* resource "azurerm_monitor_diagnostic_setting" "backup_vault_diagnostics" {
   name                       = "backup-vault-diagnostics1"
   target_resource_id         = azurerm_data_protection_backup_vault.backup_vault.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
@@ -1083,7 +1083,7 @@ resource "azurerm_monitor_diagnostic_setting" "backup_vault_diagnostics" {
   }
 
   depends_on = [azurerm_log_analytics_workspace.law]
-}
+} */
 
 # ============================================================================
 # STORAGE CONTAINERS
