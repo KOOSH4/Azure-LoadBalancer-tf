@@ -1159,9 +1159,9 @@ resource "azurerm_recovery_services_vault" "rsv" {
     Purpose = "Backup"
   })
 }
-
+# ***
 resource "azurerm_backup_policy_vm" "policy_daily" {
-  name                = "DefaultPolicy"
+  name                = "DefaultPolicies"
   resource_group_name = var.resource_group_name
   recovery_vault_name = azurerm_recovery_services_vault.rsv.name
   policy_type         = "V2"
