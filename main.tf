@@ -498,7 +498,7 @@ resource "azurerm_log_analytics_workspace" "law" {
   identity {
     type = "UserAssigned"
     identity_ids = [
-      azurerm_user_assigned_identity.id_log.principal_id
+      azurerm_user_assigned_identity.id_log.id
     ]
   }
 
@@ -1162,10 +1162,10 @@ resource "azurerm_log_analytics_data_export_rule" "export_logs" {
   ]
 }
 # ============================================================================
-# Recovery Services Vault (RSV) & Backup Policy
+# Recovery Services Vault (RSV) & Backup Policy ***
 # ============================================================================
 resource "azurerm_recovery_services_vault" "rsv" {
-  name                          = "rsv-wss-prd-sec-1"
+  name                          = "rsv-wss-sec-016"
   location                      = var.location
   resource_group_name           = var.resource_group_name
   sku                           = "Standard"
