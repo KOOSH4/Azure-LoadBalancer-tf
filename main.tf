@@ -67,7 +67,7 @@ resource "random_password" "vm_admin_password" {
 # ============================================================================
 
 resource "azurerm_key_vault" "vm_credentials" {
-  name                       = "kv-wss-lab-sec-014"
+  name                       = "kv-wss-lab-sec-015"
   location                   = var.location
   resource_group_name        = var.resource_group_name
   tenant_id                  = data.azurerm_client_config.current.tenant_id
@@ -206,12 +206,6 @@ resource "azurerm_network_security_group" "nsg_sub_mgmt" {
     Purpose = "Management-Subnet-Security"
   })
 }
-
-# ============================================================================
-# NSG FLOW LOGS (REMOVED DUE TO POLICY RESTRICTIONS)
-# ============================================================================
-# Note: NSG Flow Logs require Network Watcher which is restricted by policy
-# Alternative: NSG diagnostics are enabled below to send logs to Log Analytics
 
 # ============================================================================
 # NSG DIAGNOSTICS
@@ -396,11 +390,11 @@ resource "azurerm_subnet_network_security_group_association" "sub_mgmt_nsg" {
 }
 
 # ============================================================================
-# LOG ANALYTICS WORKSPACE (MOVED UP FOR DEPENDENCIES)
+# LOG ANALYTICS WORKSPACE
 # ============================================================================
 
 resource "azurerm_log_analytics_workspace" "law" {
-  name                = "log-wss-lab-sec-014"
+  name                = "log-wss-lab-sec-015"
   location            = var.location
   resource_group_name = var.resource_group_name
   sku                 = "PerGB2018"
@@ -434,7 +428,7 @@ resource "azurerm_storage_account" "stblc" {
 # ============================================================================
 # STORAGE ACCOUNT DIAGNOSTICS
 # ============================================================================
-/*
+
 resource "azurerm_monitor_diagnostic_setting" "storage_diagnostics" {
   name                       = "storage-diagnostics"
   target_resource_id         = azurerm_storage_account.stblc.id
@@ -450,7 +444,7 @@ resource "azurerm_monitor_diagnostic_setting" "storage_diagnostics" {
 
   }
 }
-*/
+
 # ============================================================================
 # PUBLIC IP ADDRESSES
 # ============================================================================
@@ -491,7 +485,7 @@ resource "azurerm_lb" "lb" {
 # ============================================================================
 # LOAD BALANCER DIAGNOSTICS
 # ============================================================================
-/*
+
 resource "azurerm_monitor_diagnostic_setting" "lb_diagnostics" {
   name                       = "lb-diagnostics"
   target_resource_id         = azurerm_lb.lb.id
@@ -504,7 +498,7 @@ resource "azurerm_monitor_diagnostic_setting" "lb_diagnostics" {
 
   }
 }
-*/
+
 resource "azurerm_lb_backend_address_pool" "pool_webs" {
   name            = "Pool-webs"
   loadbalancer_id = azurerm_lb.lb.id
@@ -697,7 +691,7 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone1" {
 # ============================================================================
 # VMSS DIAGNOSTICS - ZONE 1
 # ============================================================================
-/*
+
 resource "azurerm_monitor_diagnostic_setting" "vmss_zone1_diagnostics" {
   name                       = "vmss-zone1-diagnostics"
   target_resource_id         = azurerm_windows_virtual_machine_scale_set.vmss_web_zone1.id
@@ -708,7 +702,7 @@ resource "azurerm_monitor_diagnostic_setting" "vmss_zone1_diagnostics" {
 
   }
 }
-*/
+
 # ============================================================================
 # VMSS - ZONE 2
 # ============================================================================
@@ -780,7 +774,7 @@ resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone2" {
 # ============================================================================
 # VMSS DIAGNOSTICS - ZONE 2
 # ============================================================================
-/*
+
 resource "azurerm_monitor_diagnostic_setting" "vmss_zone2_diagnostics" {
   name                       = "vmss-zone2-diagnostics"
   target_resource_id         = azurerm_windows_virtual_machine_scale_set.vmss_web_zone2.id
@@ -791,7 +785,7 @@ resource "azurerm_monitor_diagnostic_setting" "vmss_zone2_diagnostics" {
 
   }
 }
-*/
+
 # ============================================================================
 # AUTOSCALE SETTINGS - ZONE 1
 # ============================================================================
@@ -1068,7 +1062,7 @@ resource "azurerm_data_protection_backup_vault" "backup_vault" {
 # ============================================================================
 # BACKUP VAULT DIAGNOSTICS
 # ============================================================================
-/*
+
 resource "azurerm_monitor_diagnostic_setting" "backup_vault_diagnostics" {
   name                       = "backup-vault-diagnostics"
   target_resource_id         = azurerm_data_protection_backup_vault.backup_vault.id
@@ -1090,7 +1084,7 @@ resource "azurerm_monitor_diagnostic_setting" "backup_vault_diagnostics" {
 
   depends_on = [azurerm_log_analytics_workspace.law]
 }
-*/
+
 # ============================================================================
 # STORAGE CONTAINERS
 # ============================================================================
