@@ -26,7 +26,7 @@ param githubBranch string = 'main'
 // --- Variables ---
 
 var storageContainerName = 'tfstate'
-var managedIdentityName = 'id-wss-lab-sec-2'
+var managedIdentityName = 'id-iac-wss-sec-1'
 
 // Contributor role definition ID (built-in role)
 var contributorRoleId = 'b24988ac-6180-42a0-ab88-20f7382dd24c'

@@ -106,13 +106,13 @@ resource "azurerm_role_assignment" "law_storage_contributor" {
 
 # Storage Private Endpoint
 resource "azurerm_private_endpoint" "pep_storage" {
-  name                = "pep-storageaccount-001"
+  name                = "pep-storageaccount-1"
   location            = var.location
   resource_group_name = var.resource_group_name
   subnet_id           = azurerm_subnet.sub_apps.id
 
   private_service_connection {
-    name                           = "pep-storageaccount-01"
+    name                           = "pep-storageaccount-1"
     private_connection_resource_id = azurerm_storage_account.stblc.id
     is_manual_connection           = false
     subresource_names              = ["blob"]
@@ -126,13 +126,13 @@ resource "azurerm_private_endpoint" "pep_storage" {
 
 # RSV Private Endpoint
 resource "azurerm_private_endpoint" "pep_rsv" {
-  name                = "pep-recoveryvault-wss-001"
+  name                = "pep-recoveryvault-wss-1"
   location            = var.location
   resource_group_name = var.resource_group_name
   subnet_id           = azurerm_subnet.sub_apps.id
 
   private_service_connection {
-    name                           = "pep-recoveryvault-wss-01"
+    name                           = "pep-recoveryvault-wss-1"
     private_connection_resource_id = azurerm_recovery_services_vault.rsv.id
     is_manual_connection           = false
     subresource_names              = ["AzureBackup"]
@@ -148,7 +148,7 @@ resource "azurerm_private_endpoint" "pep_rsv" {
 # ============================================================================
 
 resource "azurerm_key_vault" "vm_credentials" {
-  name                       = "kv-wss-sec-016"
+  name                       = "kv-wss-sec-16"
   location                   = var.location
   resource_group_name        = var.resource_group_name
   tenant_id                  = data.azurerm_client_config.current.tenant_id
@@ -241,7 +241,7 @@ resource "azurerm_key_vault_secret" "vm_admin_password" {
 # ============================================================================
 
 resource "azurerm_application_security_group" "asg_web_tier" {
-  name                = "asg-web-wss-sec-001"
+  name                = "asg-web-wss-sec-1"
   location            = var.location
   resource_group_name = var.resource_group_name
 
@@ -252,7 +252,7 @@ resource "azurerm_application_security_group" "asg_web_tier" {
 }
 
 resource "azurerm_application_security_group" "asg_mgmt_tier" {
-  name                = "asg-mgmt-wss-sec-001"
+  name                = "asg-mgmt-wss-sec-1"
   location            = var.location
   resource_group_name = var.resource_group_name
 
@@ -269,7 +269,7 @@ resource "azurerm_application_security_group" "asg_mgmt_tier" {
 # ===========================================================================
 
 resource "azurerm_network_security_group" "nsg_sub_apps" {
-  name                = "nsg-wss-sec-001"
+  name                = "nsg-wss-sec-1"
   location            = var.location
   resource_group_name = var.resource_group_name
 
@@ -279,7 +279,7 @@ resource "azurerm_network_security_group" "nsg_sub_apps" {
 }
 
 resource "azurerm_network_security_group" "nsg_sub_mgmt" {
-  name                = "nsg-mgmt-wss-sec-001"
+  name                = "nsg-mgmt-wss-sec-1"
   location            = var.location
   resource_group_name = var.resource_group_name
 
@@ -425,7 +425,7 @@ resource "azurerm_network_security_rule" "apps_allow_health_probe" {
 # ============================================================================
 
 resource "azurerm_virtual_network" "vnet_shared" {
-  name                = "vnet-wss-sec-001"
+  name                = "vnet-wss-sec-1"
   location            = var.location
   resource_group_name = var.resource_group_name
   address_space       = ["10.100.0.0/16"]
@@ -434,7 +434,7 @@ resource "azurerm_virtual_network" "vnet_shared" {
 }
 
 resource "azurerm_subnet" "sub_apps" {
-  name                 = "snet-app-wss-lab-sec-001"
+  name                 = "snet-app-wss-sec-1"
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.vnet_shared.name
   address_prefixes     = ["10.100.1.0/24"]
@@ -446,7 +446,7 @@ resource "azurerm_subnet" "sub_apps" {
 }
 
 resource "azurerm_subnet" "sub_mgmt" {
-  name                 = "snet-mngmnt-wss-lab-sec-002"
+  name                 = "snet-mngmnt-wss-sec-1"
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.vnet_shared.name
   address_prefixes     = ["10.100.0.0/24"]
@@ -489,7 +489,7 @@ resource "azurerm_subnet_network_security_group_association" "sub_mgmt_nsg" {
 # ============================================================================
 
 resource "azurerm_log_analytics_workspace" "law" {
-  name                = "log-wss-sec-016"
+  name                = "log-wss-sec-16"
   location            = var.location
   resource_group_name = var.resource_group_name
   sku                 = "PerGB2018"
@@ -512,7 +512,7 @@ resource "azurerm_log_analytics_workspace" "law" {
 # ============================================================================
 
 resource "azurerm_storage_account" "stblc" {
-  name                     = "stblcwsslabsec001"
+  name                     = "stlogbckwsssec1"
   resource_group_name      = var.resource_group_name
   location                 = var.location
   account_tier             = "Standard"
@@ -560,7 +560,7 @@ resource "azurerm_storage_account" "stblc" {
 # ============================================================================
 
 resource "azurerm_monitor_data_collection_rule" "dcr_vmss" {
-  name                = "dcr-vmss-wss-001"
+  name                = "dcr-vmss-wss-1"
   resource_group_name = var.resource_group_name
   location            = var.location
 
@@ -616,7 +616,7 @@ resource "azurerm_monitor_data_collection_rule" "dcr_vmss" {
 # ============================================================================
 
 resource "azurerm_public_ip" "pip_lb" {
-  name                    = "pip-lb-wss-sec-001"
+  name                    = "pip-lb-wss-sec-1"
   location                = var.location
   resource_group_name     = var.resource_group_name
   allocation_method       = "Static"
@@ -633,7 +633,7 @@ resource "azurerm_public_ip" "pip_lb" {
 # ============================================================================
 
 resource "azurerm_lb" "lb" {
-  name                = "lbi-wss-sec-001"
+  name                = "lbi-wss-sec-1"
   location            = var.location
   resource_group_name = var.resource_group_name
   sku                 = "Standard"
@@ -749,7 +749,7 @@ resource "azurerm_lb_rule" "rule_3389" {
 # ============================================================================
 
 resource "azurerm_network_interface" "nic_mgmt" {
-  name                = "nic-vm-mgmt-wss-sec-001"
+  name                = "nic-vm-mgmt-wss-sec-1"
   location            = var.location
   resource_group_name = var.resource_group_name
 
@@ -785,7 +785,7 @@ resource "azurerm_network_interface_application_security_group_association" "nic
 }
 
 resource "azurerm_windows_virtual_machine" "vm_mgmt" {
-  name                  = "vm-mgmt-wss-sec"
+  name                  = "vm-mgmt-wss-sec-1"
   location              = var.location
   resource_group_name   = var.resource_group_name
   size                  = "Standard_D2as_v5"
@@ -824,7 +824,7 @@ resource "azurerm_windows_virtual_machine" "vm_mgmt" {
 # ============================================================================
 
 resource "azurerm_windows_virtual_machine_scale_set" "vmss_web_zone1" {
-  name                = "vmss-app1"
+  name                = "vmss-app"
   location            = var.location
   resource_group_name = var.resource_group_name
   sku                 = var.vmss_sku
@@ -1147,7 +1147,7 @@ resource "azurerm_log_analytics_data_export_rule" "export_logs" {
 # Recovery Services Vault (RSV) & Backup Policy ***
 # ============================================================================
 resource "azurerm_recovery_services_vault" "rsv" {
-  name                          = "rsv-wss-sec-016"
+  name                          = "rsv-wss-sec-16"
   location                      = var.location
   resource_group_name           = var.resource_group_name
   sku                           = "Standard"
