@@ -785,7 +785,7 @@ resource "azurerm_network_interface_application_security_group_association" "nic
 }
 
 resource "azurerm_windows_virtual_machine" "vm_mgmt" {
-  name                  = "vm-mgmt-wss-sec-1"
+  name                  = "vm-mgt-wss-sec1"
   location              = var.location
   resource_group_name   = var.resource_group_name
   size                  = "Standard_D2as_v5"
