@@ -191,7 +191,7 @@ variable "monitoring_settings" {
   })
   default = {
     log_analytics = {
-      name              = "log-wss-sec-1" # ***
+      name              = "log-wss-sec-2" # ***
       sku               = "PerGB2018"
       retention_in_days = 30
     }
@@ -765,7 +765,7 @@ variable "backup_settings" {
     })
   })
   default = {
-    vault_name                    = "rsv-wss-sec-1" # ***
+    vault_name                    = "rsv-wss-sec-2" # ***
     vault_sku                     = "Standard"
     storage_mode_type             = "LocallyRedundant"
     soft_delete_enabled           = false
