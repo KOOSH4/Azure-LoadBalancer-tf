@@ -35,7 +35,7 @@ locals {
 
 data "azurerm_client_config" "current" {}
 
-# Identity used across the stack
+# Identity used across the stack 
 module "identity" {
   source              = "./modules/identity"
   location            = var.location
