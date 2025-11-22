@@ -64,6 +64,8 @@ jobs:
           TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_admin_username: ${{ secrets.AZURE_ADMIN_USERNAME }}
+
         continue-on-error: false
         run: terraform plan -no-color -out=tfplan
 
@@ -77,6 +79,8 @@ jobs:
           TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_admin_username: ${{ secrets.AZURE_ADMIN_USERNAME }}
+
         run: terraform apply -auto-approve
 
       - name: Display Key Vault Information

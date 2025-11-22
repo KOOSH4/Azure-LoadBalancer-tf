@@ -16,7 +16,7 @@ resource "azurerm_key_vault" "vm_credentials" {
   sku_name                   = var.key_vault_settings.sku_name
   soft_delete_retention_days = var.key_vault_settings.soft_delete_retention_days
   rbac_authorization_enabled = var.key_vault_settings.rbac_authorization_enabled
-  public_network_access_enabled = false
+  #public_network_access_enabled = false
 
 
   network_acls {
