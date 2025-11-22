@@ -105,7 +105,7 @@ variable "key_vault_settings" {
     })
   })
   default = {
-    name                       = "kv-wss-sec-1" # ***
+    name                       = "kv-wss-sec-2" # ***
     sku_name                   = "standard"
     soft_delete_retention_days = 7
     rbac_authorization_enabled = true
