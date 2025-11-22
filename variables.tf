@@ -34,7 +34,6 @@ variable "tenant_id" {
 variable "admin_username" {
   description = "Admin username for Windows hosts."
   type        = string
-  default     = "AzureMinions"
   sensitive   = true
 }
 
@@ -106,7 +105,7 @@ variable "key_vault_settings" {
     })
   })
   default = {
-    name                       = "kv-wss-sec-17" # ***
+    name                       = "kv-wss-sec-1" # ***
     sku_name                   = "standard"
     soft_delete_retention_days = 7
     rbac_authorization_enabled = true
@@ -192,7 +191,7 @@ variable "monitoring_settings" {
   })
   default = {
     log_analytics = {
-      name              = "log-wss-sec-17" # ***
+      name              = "log-wss-sec-1" # ***
       sku               = "PerGB2018"
       retention_in_days = 30
     }
@@ -766,7 +765,7 @@ variable "backup_settings" {
     })
   })
   default = {
-    vault_name                    = "rsv-wss-sec-17" # ***
+    vault_name                    = "rsv-wss-sec-1" # ***
     vault_sku                     = "Standard"
     storage_mode_type             = "LocallyRedundant"
     soft_delete_enabled           = false
